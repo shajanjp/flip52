@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal Card Table</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .card {
+            width: 54px;
+            height: 75px;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s;
+            flex-shrink: 0;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card.selected {
+            outline: 3px solid #3b82f6;
+            transform: translateY(-5px);
+            z-index: 10;
+        }
+        .suit-S, .suit-C { color: black; }
+        .suit-H, .suit-D { color: red; }
+        
+        .table-area {
+            min-height: 150px;
+            background-color: #065f46;
+            border-radius: 8px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+            gap: 8px;
+            justify-items: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col min-h-screen">
+
+    <!-- Login/Join Overlay -->
+    <div id="login-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-80">
+            <h2 class="text-xl font-bold mb-4">Join Game</h2>
+            <input id="player-name" type="text" placeholder="Your Name" class="w-full border p-2 rounded mb-4">
+            <input id="room-id" type="text" placeholder="Room ID (Optional)" class="w-full border p-2 rounded mb-4 uppercase">
+            <button id="btn-join" class="w-full bg-blue-500 text-white p-2 rounded font-bold">Start / Join</button>
+        </div>
+    </div>
+
+    <!-- Room Header -->
+    <header class="bg-white shadow p-4 flex justify-between items-center sticky top-0 z-30">
+        <div class="flex items-center gap-2">
+            <span class="font-bold text-gray-600">Room:</span>
+            <span id="display-room-id" class="font-mono bg-gray-200 px-2 rounded">------</span>
+            <button id="btn-copy" class="text-xs bg-gray-300 px-1 rounded hover:bg-gray-400">Copy Link</button>
+        </div>
+        <div id="player-list" class="text-sm text-gray-500 overflow-x-auto whitespace-nowrap max-w-[40%] flex gap-2">
+            <!-- Players will be listed here -->
+        </div>
+        <button id="btn-start" class="hidden bg-green-500 text-white px-4 py-1 rounded text-sm font-bold shadow-md">Start Game</button>
+    </header>
+
+    <!-- Table Area -->
+    <main class="p-4 flex-1">
+        <div class="table-area p-4 card-grid" id="table-cards">
+            <!-- Table cards here -->
+        </div>
+    </main>
+
+    <!-- My Hand -->
+    <section class="bg-gray-200 p-4 border-t border-gray-300">
+        <div id="my-hand" class="card-grid">
+            <!-- My cards here -->
+        </div>
+    </section>
+
+    <!-- Action Bar -->
+    <nav class="bg-white border-t p-4 flex justify-around gap-2 sticky bottom-40 z-20">
+        <button id="btn-play" class="flex-1 bg-blue-500 text-white py-2 rounded font-bold disabled:opacity-50">Play</button>
+        <button id="btn-take" class="flex-1 bg-yellow-500 text-white py-2 rounded font-bold disabled:opacity-50">Take</button>
+        <button id="btn-discard" class="flex-1 bg-red-500 text-white py-2 rounded font-bold disabled:opacity-50">Discard</button>
+        <button id="btn-end" class="bg-gray-500 text-white px-4 py-2 rounded font-bold">End</button>
+    </nav>
+
+    <!-- Chat Window -->
+    <section class="bg-white border-t h-40 flex flex-col sticky bottom-0 z-20">
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-2 text-sm">
+            <!-- Chat messages here -->
+        </div>
+        <div class="flex border-t">
+            <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 p-2 outline-none">
+            <button id="btn-send" class="bg-blue-500 text-white px-4 py-2">Send</button>
+        </div>
+    </section>
+
+    <script src="app.js"></script>
+</body>
+</html>
