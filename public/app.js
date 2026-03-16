@@ -1,4 +1,4 @@
-const socket = new WebSocket(`ws://${window.location.host}`);
+const socket = new WebSocket(`ws://${window.location.host}/ws`);
 
 let myId = null;
 let selectedHandCards = new Set();

@@ -1,26 +1,27 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { Hono } from "https://deno.land/x/hono@v4.3.11/mod.ts";
+import { serveStatic } from "https://deno.land/x/hono@v4.3.11/middleware.ts";
+import { upgradeWebSocket } from "https://deno.land/x/hono@v4.3.11/adapter/deno/websocket.ts";
 
+const app = new Hono();
 const kv = await Deno.openKv();
 
 interface Player {
   id: string;
   name: string;
   hand: string[];
-  ws?: WebSocket; // ws is not stored in KV
 }
 
 interface RoomData {
   roomId: string;
   hostId: string;
-  players: Omit<Player, "ws">[];
+  players: Player[];
   table: string[];
   discard: string[];
   chat: { name: string; message: string; type: "chat" | "activity" }[];
   state: "WAITING" | "PLAYING";
 }
 
-// Keep active WebSockets in memory
-const activeConnections = new Map<string, Map<string, WebSocket>>(); // roomId -> playerId -> WebSocket
+const activeConnections = new Map<string, Map<string, WebSocket>>();
 
 function generateRoomId() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -80,216 +81,195 @@ async function broadcast(roomId: string) {
   }
 }
 
-async function handleWebSocket(ws: WebSocket) {
-  let currentPlayerId: string | null = null;
-  let currentRoomId: string | null = null;
+// WebSocket Route
+app.get(
+  "/ws",
+  upgradeWebSocket((c) => {
+    let currentPlayerId: string | null = null;
+    let currentRoomId: string | null = null;
 
-  ws.onmessage = async (event) => {
-    const data = JSON.parse(event.data);
+    return {
+      onMessage: async (event, ws) => {
+        const data = JSON.parse(event.data as string);
 
-    switch (data.type) {
-      case "CREATE_ROOM": {
-        const roomId = generateRoomId();
-        const playerId = crypto.randomUUID().substring(0, 8);
-        const roomData: RoomData = {
-          roomId,
-          hostId: playerId,
-          players: [{ id: playerId, name: data.name, hand: [] }],
-          table: [],
-          discard: [],
-          chat: [{ name: "System", message: `${data.name} created the room`, type: "activity" }],
-          state: "WAITING"
-        };
-        
-        await kv.set(["rooms", roomId], roomData);
-        
-        currentPlayerId = playerId;
-        currentRoomId = roomId;
-        
-        if (!activeConnections.has(roomId)) activeConnections.set(roomId, new Map());
-        activeConnections.get(roomId)!.set(playerId, ws);
-        
-        broadcast(roomId);
-        break;
-      }
-
-      case "JOIN_ROOM": {
-        const roomRes = await kv.get<RoomData>(["rooms", data.roomId]);
-        const room = roomRes.value;
-        if (!room) {
-          ws.send(JSON.stringify({ type: "ERROR", message: "Room not found" }));
-          return;
-        }
-        if (room.players.length >= 10) {
-          ws.send(JSON.stringify({ type: "ERROR", message: "Room full" }));
-          return;
-        }
-        
-        const playerId = crypto.randomUUID().substring(0, 8);
-        room.players.push({ id: playerId, name: data.name, hand: [] });
-        room.chat.push({ name: "System", message: `${data.name} joined the room`, type: "activity" });
-        
-        await kv.set(["rooms", data.roomId], room);
-        
-        currentPlayerId = playerId;
-        currentRoomId = data.roomId;
-        
-        if (!activeConnections.has(data.roomId)) activeConnections.set(data.roomId, new Map());
-        activeConnections.get(data.roomId)!.set(playerId, ws);
-        
-        broadcast(data.roomId);
-        break;
-      }
-
-      case "START_GAME": {
-        if (!currentRoomId || !currentPlayerId) return;
-        const roomRes = await kv.get<RoomData>(["rooms", currentRoomId]);
-        const room = roomRes.value;
-        if (!room || room.hostId !== currentPlayerId) return;
-        if (room.players.length < 2) {
-          ws.send(JSON.stringify({ type: "ERROR", message: "Need at least 2 players" }));
-          return;
-        }
-
-        let deck = createDeck();
-        deck = shuffle(deck);
-        
-        const playerCount = room.players.length;
-        const cardsPerPlayer = Math.floor(deck.length / playerCount);
-        
-        for (let i = 0; i < playerCount; i++) {
-          const start = i * cardsPerPlayer;
-          const end = i === playerCount - 1 ? deck.length : (i + 1) * cardsPerPlayer;
-          room.players[i].hand = deck.slice(start, end);
-        }
-        
-        room.table = [];
-        room.discard = [];
-        room.chat = [{ name: "System", message: "Game started!", type: "activity" }];
-        room.state = "PLAYING";
-        
-        await kv.set(["rooms", currentRoomId], room);
-        broadcast(currentRoomId);
-        break;
-      }
-
-      case "PLAY_CARD":
-      case "TAKE_CARD":
-      case "DISCARD_CARD":
-      case "SEND_CHAT":
-      case "END_TURN": {
-        if (!currentRoomId || !currentPlayerId) return;
-        const roomRes = await kv.get<RoomData>(["rooms", currentRoomId]);
-        const room = roomRes.value;
-        if (!room) return;
-        
-        const player = room.players.find(p => p.id === currentPlayerId);
-        if (!player) return;
-
-        const cardIds = Array.isArray(data.cardIds) ? data.cardIds : (data.cardId ? [data.cardId] : []);
-
-        if (data.type === "PLAY_CARD") {
-          for (const cardId of cardIds) {
-            const index = player.hand.indexOf(cardId);
-            if (index !== -1) {
-              player.hand.splice(index, 1);
-              room.table.push(cardId);
-              room.chat.push({ name: "System", message: `${player.name} played ${cardId}`, type: "activity" });
-            }
+        switch (data.type) {
+          case "CREATE_ROOM": {
+            const roomId = generateRoomId();
+            const playerId = crypto.randomUUID().substring(0, 8);
+            const roomData: RoomData = {
+              roomId,
+              hostId: playerId,
+              players: [{ id: playerId, name: data.name, hand: [] }],
+              table: [],
+              discard: [],
+              chat: [{ name: "System", message: `${data.name} created the room`, type: "activity" }],
+              state: "WAITING"
+            };
+            
+            await kv.set(["rooms", roomId], roomData);
+            currentPlayerId = playerId;
+            currentRoomId = roomId;
+            
+            if (!activeConnections.has(roomId)) activeConnections.set(roomId, new Map());
+            activeConnections.get(roomId)!.set(playerId, ws as unknown as WebSocket);
+            
+            broadcast(roomId);
+            break;
           }
-        } else if (data.type === "TAKE_CARD") {
-          for (const cardId of cardIds) {
-            const index = room.table.indexOf(cardId);
-            if (index !== -1) {
-              room.table.splice(index, 1);
-              player.hand.push(cardId);
-              room.chat.push({ name: "System", message: `${player.name} took ${cardId} from table`, type: "activity" });
+
+          case "JOIN_ROOM": {
+            const roomRes = await kv.get<RoomData>(["rooms", data.roomId]);
+            const room = roomRes.value;
+            if (!room) {
+              ws.send(JSON.stringify({ type: "ERROR", message: "Room not found" }));
+              return;
             }
+            if (room.players.length >= 10) {
+              ws.send(JSON.stringify({ type: "ERROR", message: "Room full" }));
+              return;
+            }
+            
+            const playerId = crypto.randomUUID().substring(0, 8);
+            room.players.push({ id: playerId, name: data.name, hand: [] });
+            room.chat.push({ name: "System", message: `${data.name} joined the room`, type: "activity" });
+            
+            await kv.set(["rooms", data.roomId], room);
+            currentPlayerId = playerId;
+            currentRoomId = data.roomId;
+            
+            if (!activeConnections.has(data.roomId)) activeConnections.set(data.roomId, new Map());
+            activeConnections.get(data.roomId)!.set(playerId, ws as unknown as WebSocket);
+            
+            broadcast(data.roomId);
+            break;
           }
-        } else if (data.type === "DISCARD_CARD") {
-          for (const cardId of cardIds) {
-            // Check hand first
-            let index = player.hand.indexOf(cardId);
+
+          case "START_GAME": {
+            if (!currentRoomId || !currentPlayerId) return;
+            const roomRes = await kv.get<RoomData>(["rooms", currentRoomId]);
+            const room = roomRes.value;
+            if (!room || room.hostId !== currentPlayerId) return;
+            if (room.players.length < 2) {
+              ws.send(JSON.stringify({ type: "ERROR", message: "Need at least 2 players" }));
+              return;
+            }
+
+            let deck = createDeck();
+            deck = shuffle(deck);
+            
+            const playerCount = room.players.length;
+            const cardsPerPlayer = Math.floor(deck.length / playerCount);
+            
+            for (let i = 0; i < playerCount; i++) {
+              const start = i * cardsPerPlayer;
+              const end = i === playerCount - 1 ? deck.length : (i + 1) * cardsPerPlayer;
+              room.players[i].hand = deck.slice(start, end);
+            }
+            
+            room.table = [];
+            room.discard = [];
+            room.chat = [{ name: "System", message: "Game started!", type: "activity" }];
+            room.state = "PLAYING";
+            
+            await kv.set(["rooms", currentRoomId], room);
+            broadcast(currentRoomId);
+            break;
+          }
+
+          case "PLAY_CARD":
+          case "TAKE_CARD":
+          case "DISCARD_CARD":
+          case "SEND_CHAT":
+          case "END_TURN": {
+            if (!currentRoomId || !currentPlayerId) return;
+            const roomRes = await kv.get<RoomData>(["rooms", currentRoomId]);
+            const room = roomRes.value;
+            if (!room) return;
+            
+            const player = room.players.find(p => p.id === currentPlayerId);
+            if (!player) return;
+
+            const cardIds = Array.isArray(data.cardIds) ? data.cardIds : (data.cardId ? [data.cardId] : []);
+
+            if (data.type === "PLAY_CARD") {
+              for (const cardId of cardIds) {
+                const index = player.hand.indexOf(cardId);
+                if (index !== -1) {
+                  player.hand.splice(index, 1);
+                  room.table.push(cardId);
+                  room.chat.push({ name: "System", message: `${player.name} played ${cardId}`, type: "activity" });
+                }
+              }
+            } else if (data.type === "TAKE_CARD") {
+              for (const cardId of cardIds) {
+                const index = room.table.indexOf(cardId);
+                if (index !== -1) {
+                  room.table.splice(index, 1);
+                  player.hand.push(cardId);
+                  room.chat.push({ name: "System", message: `${player.name} took ${cardId} from table`, type: "activity" });
+                }
+              }
+            } else if (data.type === "DISCARD_CARD") {
+              for (const cardId of cardIds) {
+                let index = player.hand.indexOf(cardId);
+                if (index !== -1) {
+                  player.hand.splice(index, 1);
+                  room.discard.push(cardId);
+                  room.chat.push({ name: "System", message: `${player.name} discarded ${cardId} from hand`, type: "activity" });
+                } else {
+                  index = room.table.indexOf(cardId);
+                  if (index !== -1) {
+                    room.table.splice(index, 1);
+                    room.discard.push(cardId);
+                    room.chat.push({ name: "System", message: `${player.name} discarded ${cardId} from table`, type: "activity" });
+                  }
+                }
+              }
+            } else if (data.type === "SEND_CHAT") {
+              room.chat.push({ name: player.name, message: data.message, type: "chat" });
+            } else if (data.type === "END_TURN") {
+              room.chat.push({ name: "System", message: `${player.name} ended their turn`, type: "activity" });
+            }
+
+            await kv.set(["rooms", currentRoomId], room);
+            broadcast(currentRoomId);
+            break;
+          }
+        }
+      },
+      onClose: async () => {
+        if (currentRoomId && currentPlayerId) {
+          const roomRes = await kv.get<RoomData>(["rooms", currentRoomId]);
+          const room = roomRes.value;
+          if (room) {
+            const index = room.players.findIndex(p => p.id === currentPlayerId);
             if (index !== -1) {
-              player.hand.splice(index, 1);
-              room.discard.push(cardId);
-              room.chat.push({ name: "System", message: `${player.name} discarded ${cardId} from hand`, type: "activity" });
-            } else {
-              // Check table
-              index = room.table.indexOf(cardId);
-              if (index !== -1) {
-                room.table.splice(index, 1);
-                room.discard.push(cardId);
-                room.chat.push({ name: "System", message: `${player.name} discarded ${cardId} from table`, type: "activity" });
+              const playerName = room.players[index].name;
+              room.players.splice(index, 1);
+              
+              const roomWsMap = activeConnections.get(currentRoomId);
+              if (roomWsMap) roomWsMap.delete(currentPlayerId);
+
+              if (room.players.length === 0) {
+                await kv.delete(["rooms", currentRoomId]);
+                activeConnections.delete(currentRoomId);
+              } else {
+                if (room.hostId === currentPlayerId) {
+                  room.hostId = room.players[0].id;
+                }
+                room.chat.push({ name: "System", message: `${playerName} left the room`, type: "activity" });
+                await kv.set(["rooms", currentRoomId], room);
+                broadcast(currentRoomId);
               }
             }
           }
-        } else if (data.type === "SEND_CHAT") {
-          room.chat.push({ name: player.name, message: data.message, type: "chat" });
-        } else if (data.type === "END_TURN") {
-          room.chat.push({ name: "System", message: `${player.name} ended their turn`, type: "activity" });
         }
+      },
+    };
+  })
+);
 
-        await kv.set(["rooms", currentRoomId], room);
-        broadcast(currentRoomId);
-        break;
-      }
-    }
-  };
+// Serve static files
+app.use("/*", serveStatic({ root: "./public" }));
 
-  ws.onclose = async () => {
-    if (currentRoomId && currentPlayerId) {
-      const roomRes = await kv.get<RoomData>(["rooms", currentRoomId]);
-      const room = roomRes.value;
-      if (room) {
-        const index = room.players.findIndex(p => p.id === currentPlayerId);
-        if (index !== -1) {
-          const playerName = room.players[index].name;
-          room.players.splice(index, 1);
-          
-          const roomWsMap = activeConnections.get(currentRoomId);
-          if (roomWsMap) roomWsMap.delete(currentPlayerId);
-
-          if (room.players.length === 0) {
-            await kv.delete(["rooms", currentRoomId]);
-            activeConnections.delete(currentRoomId);
-          } else {
-            if (room.hostId === currentPlayerId) {
-              room.hostId = room.players[0].id;
-            }
-            room.chat.push({ name: "System", message: `${playerName} left the room`, type: "activity" });
-            await kv.set(["rooms", currentRoomId], room);
-            broadcast(currentRoomId);
-          }
-        }
-      }
-    }
-  };
-}
-
-serve(async (req) => {
-  if (req.headers.get("upgrade") === "websocket") {
-    const { socket, response } = Deno.upgradeWebSocket(req);
-    handleWebSocket(socket);
-    return response;
-  }
-
-  const url = new URL(req.url);
-  let filePath = url.pathname === "/" ? "/index.html" : url.pathname;
-  
-  try {
-    const file = await Deno.readFile(`./public${filePath}`);
-    const contentType = filePath.endsWith(".html") ? "text/html" : 
-                        filePath.endsWith(".js") ? "application/javascript" :
-                        filePath.endsWith(".css") ? "text/css" :
-                        filePath.endsWith(".png") ? "image/png" : "text/plain";
-    
-    return new Response(file, {
-      headers: { "content-type": contentType },
-    });
-  } catch {
-    return new Response("Not Found", { status: 404 });
-  }
-}, { port: 8000 });
-
-console.log("Server running on http://localhost:8000");
+Deno.serve(app.fetch);
