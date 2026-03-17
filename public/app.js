@@ -224,15 +224,20 @@ function renderUI() {
     
     // Players List
     playerList.innerHTML = gameState.players.map(p => `
-        <span class="${p.id === myId ? 'font-bold text-blue-600' : ''}">
-            ${p.name} (${p.handCount})
-        </span>
-    `).join(' • ');
+        <div class="flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold whitespace-nowrap shadow-sm
+            ${p.id === myId ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-200'}">
+            <span class="max-w-[80px] truncate">${p.name}</span>
+            <span class="opacity-70 px-1.5 py-0.5 rounded-full text-[10px] 
+                ${p.id === myId ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'}">
+                ${p.handCount}
+            </span>
+        </div>
+    `).join('');
 
     // Start/New Game Button Visibility
     if (gameState.hostId === myId && gameState.players.length >= 2) {
         btnStart.classList.remove('hidden');
-        btnStart.innerText = gameState.state === 'PLAYING' ? 'New Game' : 'Start Game';
+        btnStart.innerText = gameState.state === 'PLAYING' ? 'RESTART' : 'START';
     } else {
         btnStart.classList.add('hidden');
     }

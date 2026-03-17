@@ -46,6 +46,17 @@
             gap: 8px;
             justify-items: center;
         }
+
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex flex-col min-h-screen">
@@ -71,15 +82,22 @@
     </div>
 
     <!-- Room Header -->
-    <header class="bg-white shadow p-4 flex justify-between items-center sticky top-0 z-30">
-        <div class="flex items-center gap-2">
-            <span class="font-bold text-gray-600">Room:</span>
-            <span id="display-room-id" class="font-mono bg-gray-200 px-2 rounded cursor-pointer hover:bg-gray-300 transition-colors" title="Click to copy link">------</span>
+    <header class="bg-white shadow sticky top-0 z-30">
+        <div class="px-4 py-2 flex justify-between items-center border-b border-gray-50">
+            <div class="flex items-center gap-4">
+                <span class="font-black text-lg tracking-tighter text-blue-600">Flip 52</span>
+                <div class="flex items-center gap-1.5 border-l pl-3 border-gray-100">
+                    <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Room</span>
+                    <span id="display-room-id" class="font-mono bg-gray-50 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-100 text-xs border border-gray-100" title="Click to copy link">------</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-start" class="hidden bg-green-500 hover:bg-green-600 text-white px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest shadow-sm active:scale-95 transition-all">Start</button>
+            </div>
         </div>
-        <div id="player-list" class="text-sm text-gray-500 overflow-x-auto whitespace-nowrap max-w-[40%] flex gap-2">
-            <!-- Players will be listed here -->
+        <div id="player-list" class="flex gap-2 overflow-x-auto whitespace-nowrap px-4 py-2 no-scrollbar bg-gray-50/50 items-center min-h-[44px] transition-all duration-300 ease-in-out">
+            <!-- Players as chips here -->
         </div>
-        <button id="btn-start" class="hidden bg-green-500 text-white px-4 py-1 rounded text-sm font-bold shadow-md">Start Game</button>
     </header>
 
     <!-- Table Area -->
