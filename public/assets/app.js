@@ -52,6 +52,40 @@ const btnPlay = document.getElementById('btn-play');
 const btnTake = document.getElementById('btn-take');
 const btnDiscard = document.getElementById('btn-discard');
 
+const systemTicker = document.getElementById('system-ticker');
+const tickerText = systemTicker.querySelector('span');
+let tickerQueue = [];
+let isTickerBusy = false;
+
+function processTicker() {
+    if (isTickerBusy || tickerQueue.length === 0) return;
+    isTickerBusy = true;
+
+    const message = tickerQueue.shift();
+    tickerText.innerHTML = formatActivity(message);
+
+    // Scroll In
+    systemTicker.style.transform = 'translateY(0)';
+
+    setTimeout(() => {
+        // Scroll Out
+        systemTicker.style.transform = 'translateY(-100%)';
+        
+        setTimeout(() => {
+            // Reset for next message
+            systemTicker.style.transition = 'none';
+            systemTicker.style.transform = 'translateY(100%)';
+            
+            // Re-enable transition for next time
+            setTimeout(() => {
+                systemTicker.style.transition = '';
+                isTickerBusy = false;
+                processTicker();
+            }, 50);
+        }, 500); // Out duration
+    }, 2500); // Visible duration
+}
+
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
 const btnSend = document.getElementById('btn-send');
@@ -149,6 +183,9 @@ function connect(force = false) {
                         if (m.includes(' played ')) sounds.play();
                         else if (m.includes(' took ')) sounds.take();
                         else if (m.includes(' discarded ')) sounds.discard();
+                        
+                        tickerQueue.push(m);
+                        processTicker();
                     }
                 });
             }
