@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minimal Card Table</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Flip 52</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .card {
@@ -49,12 +51,22 @@
 <body class="bg-gray-100 flex flex-col min-h-screen">
 
     <!-- Login/Join Overlay -->
-    <div id="login-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white p-6 rounded-lg shadow-xl w-80">
-            <h2 class="text-xl font-bold mb-4">Join Game</h2>
-            <input id="player-name" type="text" placeholder="Your Name" class="w-full border p-2 rounded mb-4">
-            <input id="room-id" type="text" placeholder="Room ID (Optional)" class="w-full border p-2 rounded mb-4 uppercase">
-            <button id="btn-join" class="w-full bg-blue-500 text-white p-2 rounded font-bold">Start / Join</button>
+    <div id="login-overlay" class="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-md flex items-center justify-center z-[100]">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-80 border border-gray-100">
+            <h2 class="text-2xl font-black mb-6 text-gray-800 text-center">Flip 52</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Your Name</label>
+                    <input id="player-name" type="text" placeholder="Enter name..." class="w-full border-2 border-gray-100 p-3 rounded-xl outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Room ID (Optional)</label>
+                    <input id="room-id" type="text" placeholder="ABCD" class="w-full border-2 border-gray-100 p-3 rounded-xl outline-none focus:border-blue-500 transition-colors uppercase">
+                </div>
+                <button id="btn-join" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl font-bold shadow-lg shadow-blue-200 transition-all active:scale-95">
+                    Join Game
+                </button>
+            </div>
         </div>
     </div>
 
@@ -62,8 +74,7 @@
     <header class="bg-white shadow p-4 flex justify-between items-center sticky top-0 z-30">
         <div class="flex items-center gap-2">
             <span class="font-bold text-gray-600">Room:</span>
-            <span id="display-room-id" class="font-mono bg-gray-200 px-2 rounded">------</span>
-            <button id="btn-copy" class="text-xs bg-gray-300 px-1 rounded hover:bg-gray-400">Copy Link</button>
+            <span id="display-room-id" class="font-mono bg-gray-200 px-2 rounded cursor-pointer hover:bg-gray-300 transition-colors" title="Click to copy link">------</span>
         </div>
         <div id="player-list" class="text-sm text-gray-500 overflow-x-auto whitespace-nowrap max-w-[40%] flex gap-2">
             <!-- Players will be listed here -->
@@ -86,23 +97,37 @@
     </section>
 
     <!-- Action Bar -->
-    <nav class="bg-white border-t p-4 flex justify-around gap-2 sticky bottom-40 z-20">
+    <nav class="bg-white border-t p-4 flex justify-around gap-2 sticky bottom-0 z-20">
         <button id="btn-play" class="flex-1 bg-blue-500 text-white py-2 rounded font-bold disabled:opacity-50">Play</button>
         <button id="btn-take" class="flex-1 bg-yellow-500 text-white py-2 rounded font-bold disabled:opacity-50">Take</button>
         <button id="btn-discard" class="flex-1 bg-red-500 text-white py-2 rounded font-bold disabled:opacity-50">Discard</button>
-        <button id="btn-end" class="bg-gray-500 text-white px-4 py-2 rounded font-bold">End</button>
     </nav>
 
-    <!-- Chat Window -->
-    <section class="bg-white border-t h-40 flex flex-col sticky bottom-0 z-20">
-        <div id="chat-messages" class="flex-1 overflow-y-auto p-2 text-sm">
-            <!-- Chat messages here -->
+    <!-- Chat Components -->
+    <div class="fixed bottom-24 right-4 z-50 pointer-events-none">
+        <!-- Chat Popup -->
+        <div id="chat-popup" class="absolute bottom-20 right-0 w-80 h-96 bg-white rounded-lg shadow-2xl flex flex-col hidden border border-gray-200 pointer-events-auto">
+            <div class="bg-blue-600 text-white p-3 rounded-t-lg flex justify-between items-center">
+                <span class="font-bold">Chat</span>
+                <button id="chat-close" class="hover:text-gray-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-3 text-sm bg-white">
+                <!-- Chat messages here -->
+            </div>
+            <div class="flex border-t p-2 bg-gray-50 rounded-b-lg">
+                <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 p-2 border rounded-l outline-none focus:ring-1 focus:ring-blue-500">
+                <button id="btn-send" class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700 transition-colors">Send</button>
+            </div>
         </div>
-        <div class="flex border-t">
-            <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 p-2 outline-none">
-            <button id="btn-send" class="bg-blue-500 text-white px-4 py-2">Send</button>
-        </div>
-    </section>
+
+        <!-- Chat Toggle Icon -->
+        <button id="chat-toggle" class="absolute bottom-0 right-0 bg-blue-600 text-white w-14 h-14 rounded-full shadow-lg hover:bg-blue-700 transition-colors flex items-center justify-center pointer-events-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+            <span id="chat-badge" class="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 border-2 border-white hidden"></span>
+        </button>
+    </div>
 
     <script src="app.js"></script>
 </body>

@@ -19,7 +19,6 @@ const roomIdInput = document.getElementById('room-id');
 const btnJoin = document.getElementById('btn-join');
 
 const displayRoomId = document.getElementById('display-room-id');
-const btnCopy = document.getElementById('btn-copy');
 const playerList = document.getElementById('player-list');
 const btnStart = document.getElementById('btn-start');
 
@@ -29,11 +28,74 @@ const myHand = document.getElementById('my-hand');
 const btnPlay = document.getElementById('btn-play');
 const btnTake = document.getElementById('btn-take');
 const btnDiscard = document.getElementById('btn-discard');
-const btnEnd = document.getElementById('btn-end');
 
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
 const btnSend = document.getElementById('btn-send');
+const chatToggle = document.getElementById('chat-toggle');
+const chatPopup = document.getElementById('chat-popup');
+const chatClose = document.getElementById('chat-close');
+const chatBadge = document.getElementById('chat-badge');
+
+// Toggle Chat
+chatToggle.onclick = () => {
+    chatPopup.classList.toggle('hidden');
+    if (!chatPopup.classList.contains('hidden')) {
+        chatBadge.classList.add('hidden');
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        chatInput.focus();
+    }
+};
+chatClose.onclick = () => chatPopup.classList.add('hidden');
+
+// Helper to copy text to clipboard with fallback
+async function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch (err) {
+            console.error("Clipboard API failed", err);
+        }
+    }
+    
+    // Fallback for insecure contexts
+    try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        return successful;
+    } catch (err) {
+        console.error("Fallback copy failed", err);
+        return false;
+    }
+}
+
+// Copy Link on Room ID Click
+displayRoomId.onclick = async () => {
+    const roomId = displayRoomId.innerText;
+    if (roomId === "------" || roomId === "COPIED!") return;
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', roomId);
+    const success = await copyToClipboard(url.toString());
+    
+    if (success) {
+        displayRoomId.innerText = "COPIED!";
+        displayRoomId.classList.add('bg-green-200');
+        setTimeout(() => {
+            displayRoomId.innerText = roomId;
+            displayRoomId.classList.remove('bg-green-200');
+        }, 1000);
+    }
+};
 
 // Check URL for Room ID
 const urlParams = new URLSearchParams(window.location.search);
@@ -48,23 +110,19 @@ btnJoin.onclick = () => {
     const roomId = roomIdInput.value.trim().toUpperCase();
     if (!name) return alert("Please enter your name");
 
+    // Request fullscreen on user gesture (with vendor prefixes)
+    const docEl = document.documentElement;
+    const requestFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+    if (requestFs) {
+        requestFs.call(docEl).catch(e => console.warn("Fullscreen failed", e));
+    }
+
     if (roomId) {
         socket.send(JSON.stringify({ type: "JOIN_ROOM", name, roomId }));
     } else {
         socket.send(JSON.stringify({ type: "CREATE_ROOM", name }));
     }
     loginOverlay.classList.add('hidden');
-};
-
-btnCopy.onclick = () => {
-    const roomId = displayRoomId.innerText;
-    const url = new URL(window.location.href);
-    url.searchParams.set('room', roomId);
-    navigator.clipboard.writeText(url.toString());
-    
-    const originalText = btnCopy.innerText;
-    btnCopy.innerText = "Copied!";
-    setTimeout(() => btnCopy.innerText = originalText, 1000);
 };
 
 btnStart.onclick = () => {
@@ -108,10 +166,6 @@ btnDiscard.onclick = () => {
         selectedTableCards.clear();
         renderUI();
     }
-};
-
-btnEnd.onclick = () => {
-    socket.send(JSON.stringify({ type: "END_TURN" }));
 };
 
 // WebSocket Handlers
@@ -217,13 +271,23 @@ function renderUI() {
     });
 
     // Chat
+    const wasAtBottom = chatMessages.scrollHeight - chatMessages.scrollTop <= chatMessages.clientHeight + 10;
+    const oldMessageCount = chatMessages.children.length;
+    
     chatMessages.innerHTML = gameState.chat.map(c => `
         <div class="mb-1 leading-tight">
             <span class="font-bold ${c.type === 'activity' ? 'text-gray-400 text-xs' : 'text-blue-500'}">${c.type === 'activity' ? 'SYSTEM' : c.name}:</span>
             <span class="${c.type === 'activity' ? 'italic text-gray-500' : 'text-gray-800'}">${c.type === 'activity' ? formatActivity(c.message) : c.message}</span>
         </div>
     `).join('');
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    if (gameState.chat.length > oldMessageCount && chatPopup.classList.contains('hidden')) {
+        chatBadge.classList.remove('hidden');
+    }
+
+    if (wasAtBottom) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
 
     // Action Buttons State
     const totalSelected = selectedHandCards.size + selectedTableCards.size;
