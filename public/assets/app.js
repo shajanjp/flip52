@@ -9,6 +9,30 @@ let myId = null;
 let selectedHandCards = new Set();
 let selectedTableCards = new Set();
 let gameState = null;
+let lastChatLength = 0;
+
+// Sound Effects
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(frequency, type, duration, volume = 0.05) {
+    try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+        gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    } catch (e) { console.warn(e); }
+}
+const sounds = {
+    play: () => playSound(880, 'sine', 0.1, 0.05),
+    take: () => playSound(660, 'sine', 0.05, 0.03),
+    discard: () => playSound(440, 'triangle', 0.15, 0.02)
+};
 
 // DOM Elements
 const loginOverlay = document.getElementById('login-overlay');
@@ -117,6 +141,18 @@ function connect(force = false) {
         }
 
         if (data.type === "ROOM_STATE") {
+            if (gameState) {
+                const newMessages = data.chat.slice(lastChatLength);
+                newMessages.forEach(msg => {
+                    if (msg.type === 'activity') {
+                        const m = msg.message;
+                        if (m.includes(' played ')) sounds.play();
+                        else if (m.includes(' took ')) sounds.take();
+                        else if (m.includes(' discarded ')) sounds.discard();
+                    }
+                });
+            }
+            lastChatLength = data.chat.length;
             gameState = data;
             myId = data.myId;
             const currentHand = new Set(data.hand);
@@ -174,12 +210,16 @@ if (roomParam) {
 chatToggle.onclick = () => {
     chatPopup.classList.toggle('hidden');
     if (!chatPopup.classList.contains('hidden')) {
+        chatToggle.classList.add('hidden');
         chatBadge.classList.add('hidden');
         chatMessages.scrollTop = chatMessages.scrollHeight;
         chatInput.focus();
     }
 };
-chatClose.onclick = () => chatPopup.classList.add('hidden');
+chatClose.onclick = () => {
+    chatPopup.classList.add('hidden');
+    chatToggle.classList.remove('hidden');
+};
 
 // Helper to copy text to clipboard with fallback
 async function copyToClipboard(text) {
@@ -231,6 +271,7 @@ displayRoomId.onclick = async () => {
 
 // Event Listeners
 btnJoin.onclick = () => {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     const name = playerNameInput.value.trim();
     const roomId = roomIdInput.value.trim().toUpperCase();
     if (!name) return alert("Please enter your name");
@@ -281,6 +322,7 @@ btnQuit.onclick = () => {
     localStorage.removeItem('flip52_player_name');
     gameState = null;
     myId = null;
+    lastChatLength = 0;
     loginOverlay.classList.remove('hidden');
     const url = new URL(window.location.href);
     url.searchParams.delete('room');
