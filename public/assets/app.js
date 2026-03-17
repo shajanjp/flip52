@@ -1,16 +1,14 @@
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
+const wsUrl = `${protocol}//${window.location.host}/ws`;
+let socket = null;
+let reconnectTimer = null;
+let reconnectDelay = 1000;
+let messageQueue = [];
 
 let myId = null;
 let selectedHandCards = new Set();
 let selectedTableCards = new Set();
 let gameState = null;
-
-const suitSymbols = { 'S': '♠', 'H': '♥', 'D': '♦', 'C': '♣' };
-const suitOrder = { 'S': 0, 'D': 1, 'C': 2, 'H': 3 };
-const rankOrder = { 
-    'A': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7, '9': 8, '10': 9, 'J': 10, 'Q': 11, 'K': 12 
-};
 
 // DOM Elements
 const loginOverlay = document.getElementById('login-overlay');
@@ -38,6 +36,140 @@ const chatPopup = document.getElementById('chat-popup');
 const chatClose = document.getElementById('chat-close');
 const chatBadge = document.getElementById('chat-badge');
 
+const suitSymbols = { 'S': '♠', 'H': '♥', 'D': '♦', 'C': '♣' };
+const suitOrder = { 'S': 0, 'D': 1, 'C': 2, 'H': 3 };
+const rankOrder = { 
+    'A': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7, '9': 8, '10': 9, 'J': 10, 'Q': 11, 'K': 12 
+};
+
+function sendSocketMessage(msg) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(msg));
+    } else {
+        messageQueue.push(msg);
+        if (!socket || (socket && socket.readyState === WebSocket.CLOSED)) {
+            connect();
+        } else if (!socket) {
+            connect();
+        }
+    }
+}
+
+function connect(force = false) {
+    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) && !force) {
+        return;
+    }
+
+    if (socket) {
+        console.log("Closing existing socket...");
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onclose = null;
+        socket.onerror = null;
+        socket.close();
+    }
+
+    console.log("Connecting to WebSocket:", wsUrl);
+    socket = new WebSocket(wsUrl);
+
+    // Safari iOS fallback: if it stays in CONNECTING too long, something is wrong
+    const connectionTimeout = setTimeout(() => {
+        if (socket && socket.readyState === WebSocket.CONNECTING) {
+            console.warn("Connection timeout, retrying...");
+            connect(true);
+        }
+    }, 5000);
+
+    socket.onopen = () => {
+        clearTimeout(connectionTimeout);
+        console.log("WebSocket connected");
+        reconnectDelay = 1000;
+
+        // Process queued messages
+        while (messageQueue.length > 0) {
+            const msg = messageQueue.shift();
+            socket.send(JSON.stringify(msg));
+        }
+
+        // Auto-rejoin if we were in a room
+        const roomId = new URLSearchParams(window.location.search).get('room');
+        const playerId = localStorage.getItem('flip52_player_id');
+        const name = localStorage.getItem('flip52_player_name');
+        
+        if (roomId && playerId && name && messageQueue.length === 0) {
+            socket.send(JSON.stringify({ type: "JOIN_ROOM", name, roomId, playerId }));
+            loginOverlay.classList.add('hidden');
+        }
+    };
+
+    socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "ERROR") {
+            if (data.message !== "Room not found") alert(data.message);
+            loginOverlay.classList.remove('hidden');
+            return;
+        }
+
+        if (data.type === "PLAYER_ID") {
+            localStorage.setItem('flip52_player_id', data.playerId);
+            return;
+        }
+
+        if (data.type === "ROOM_STATE") {
+            gameState = data;
+            myId = data.myId;
+            const currentHand = new Set(data.hand);
+            const currentTable = new Set(data.table);
+            selectedHandCards = new Set([...selectedHandCards].filter(id => currentHand.has(id)));
+            selectedTableCards = new Set([...selectedTableCards].filter(id => currentTable.has(id)));
+            renderUI();
+            
+            const url = new URL(window.location.href);
+            if (url.searchParams.get('room') !== data.roomId) {
+                url.searchParams.set('room', data.roomId);
+                window.history.pushState({}, '', url);
+            }
+        }
+    };
+
+    socket.onclose = () => {
+        console.log("WebSocket disconnected, retrying...");
+        clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connect, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+    };
+
+    socket.onerror = (err) => {
+        console.error("WebSocket error:", err);
+        alert("Connection Error to: " + wsUrl + "\n\nPlease check if the server is running and accessible. If using a local IP, ensure your phone is on the same Wi-Fi.");
+    };
+}
+
+// Initial Connection with small delay for mobile Safari
+setTimeout(connect, 100);
+
+// Reconnect when page becomes visible again (helpful for mobile Safari)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+            console.log("Visibility changed to visible, reconnecting...");
+            connect();
+        }
+    }
+});
+
+// Restore name from localStorage
+const savedName = localStorage.getItem('flip52_player_name');
+if (savedName) playerNameInput.value = savedName;
+
+// Check URL for Room ID
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get('room');
+if (roomParam) {
+    roomIdInput.value = roomParam.toUpperCase();
+}
+
 // Toggle Chat
 chatToggle.onclick = () => {
     chatPopup.classList.toggle('hidden');
@@ -60,7 +192,6 @@ async function copyToClipboard(text) {
         }
     }
     
-    // Fallback for insecure contexts
     try {
         const textArea = document.createElement("textarea");
         textArea.value = text;
@@ -98,22 +229,20 @@ displayRoomId.onclick = async () => {
     }
 };
 
-// Check URL for Room ID
-const urlParams = new URLSearchParams(window.location.search);
-const roomParam = urlParams.get('room');
-if (roomParam) {
-    roomIdInput.value = roomParam.toUpperCase();
-}
-
 // Event Listeners
 btnJoin.onclick = () => {
     const name = playerNameInput.value.trim();
     const roomId = roomIdInput.value.trim().toUpperCase();
     if (!name) return alert("Please enter your name");
 
+    localStorage.setItem('flip52_player_name', name);
     const playerId = localStorage.getItem('flip52_player_id');
 
-    // Request fullscreen on user gesture (with vendor prefixes)
+    // Force connect on user gesture if not already open
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        connect(true);
+    }
+
     const docEl = document.documentElement;
     const requestFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
     if (requestFs) {
@@ -121,9 +250,9 @@ btnJoin.onclick = () => {
     }
 
     if (roomId) {
-        socket.send(JSON.stringify({ type: "JOIN_ROOM", name, roomId, playerId }));
+        sendSocketMessage({ type: "JOIN_ROOM", name, roomId, playerId });
     } else {
-        socket.send(JSON.stringify({ type: "CREATE_ROOM", name, playerId }));
+        sendSocketMessage({ type: "CREATE_ROOM", name, playerId });
     }
     loginOverlay.classList.add('hidden');
 };
@@ -131,7 +260,7 @@ btnJoin.onclick = () => {
 btnStart.onclick = () => {
     const action = gameState.state === 'PLAYING' ? "restart" : "start";
     if (action === "restart" && !confirm("This will clear the table and chat. Start new game?")) return;
-    socket.send(JSON.stringify({ type: "START_GAME" }));
+    sendSocketMessage({ type: "START_GAME" });
 };
 
 btnSend.onclick = sendChat;
@@ -140,19 +269,19 @@ chatInput.onkeypress = (e) => { if (e.key === 'Enter') sendChat(); };
 function sendChat() {
     const message = chatInput.value.trim();
     if (message) {
-        socket.send(JSON.stringify({ type: "SEND_CHAT", message }));
+        sendSocketMessage({ type: "SEND_CHAT", message });
         chatInput.value = '';
     }
 }
 
 btnQuit.onclick = () => {
     if (!confirm("Are you sure you want to quit this room?")) return;
-    socket.send(JSON.stringify({ type: "LEAVE_ROOM" }));
+    sendSocketMessage({ type: "LEAVE_ROOM" });
     localStorage.removeItem('flip52_player_id');
+    localStorage.removeItem('flip52_player_name');
     gameState = null;
     myId = null;
     loginOverlay.classList.remove('hidden');
-    // Clear the URL room param
     const url = new URL(window.location.href);
     url.searchParams.delete('room');
     window.history.pushState({}, '', url);
@@ -160,7 +289,7 @@ btnQuit.onclick = () => {
 
 btnPlay.onclick = () => {
     if (selectedHandCards.size > 0) {
-        socket.send(JSON.stringify({ type: "PLAY_CARD", cardIds: Array.from(selectedHandCards) }));
+        sendSocketMessage({ type: "PLAY_CARD", cardIds: Array.from(selectedHandCards) });
         selectedHandCards.clear();
         renderUI();
     }
@@ -168,7 +297,7 @@ btnPlay.onclick = () => {
 
 btnTake.onclick = () => {
     if (selectedTableCards.size > 0) {
-        socket.send(JSON.stringify({ type: "TAKE_CARD", cardIds: Array.from(selectedTableCards) }));
+        sendSocketMessage({ type: "TAKE_CARD", cardIds: Array.from(selectedTableCards) });
         selectedTableCards.clear();
         renderUI();
     }
@@ -177,44 +306,10 @@ btnTake.onclick = () => {
 btnDiscard.onclick = () => {
     const cardsToDiscard = [...selectedHandCards, ...selectedTableCards];
     if (cardsToDiscard.length > 0) {
-        socket.send(JSON.stringify({ type: "DISCARD_CARD", cardIds: cardsToDiscard }));
+        sendSocketMessage({ type: "DISCARD_CARD", cardIds: cardsToDiscard });
         selectedHandCards.clear();
         selectedTableCards.clear();
         renderUI();
-    }
-};
-
-// WebSocket Handlers
-socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-
-    if (data.type === "ERROR") {
-        alert(data.message);
-        loginOverlay.classList.remove('hidden');
-        return;
-    }
-
-    if (data.type === "PLAYER_ID") {
-        localStorage.setItem('flip52_player_id', data.playerId);
-        return;
-    }
-
-    if (data.type === "ROOM_STATE") {
-        gameState = data;
-        myId = data.myId;
-        // Keep selection of cards that are still in hand/table
-        const currentHand = new Set(data.hand);
-        const currentTable = new Set(data.table);
-        selectedHandCards = new Set([...selectedHandCards].filter(id => currentHand.has(id)));
-        selectedTableCards = new Set([...selectedTableCards].filter(id => currentTable.has(id)));
-        renderUI();
-        
-        // Update URL without reloading
-        const url = new URL(window.location.href);
-        if (url.searchParams.get('room') !== data.roomId) {
-            url.searchParams.set('room', data.roomId);
-            window.history.pushState({}, '', url);
-        }
     }
 };
 
@@ -243,7 +338,6 @@ function renderUI() {
 
     displayRoomId.innerText = gameState.roomId;
     
-    // Players List
     playerList.innerHTML = gameState.players.map(p => `
         <div class="flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold whitespace-nowrap shadow-sm
             ${p.id === myId ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-200'}">
@@ -255,7 +349,6 @@ function renderUI() {
         </div>
     `).join('');
 
-    // Start/New Game Button Visibility
     if (gameState.hostId === myId && gameState.players.length >= 2) {
         btnStart.classList.remove('hidden');
         btnStart.innerText = gameState.state === 'PLAYING' ? 'RESTART' : 'START';
@@ -263,9 +356,8 @@ function renderUI() {
         btnStart.classList.add('hidden');
     }
 
-    // Table Cards
     tableCards.innerHTML = '';
-    gameState.table.forEach((cardId, index) => {
+    gameState.table.forEach((cardId) => {
         const cardEl = createCardElement(cardId);
         if (selectedTableCards.has(cardId)) cardEl.classList.add('selected');
         cardEl.onclick = () => {
@@ -279,7 +371,6 @@ function renderUI() {
         tableCards.appendChild(cardEl);
     });
 
-    // My Hand - SORTED
     myHand.innerHTML = '';
     const sortedHand = sortCards(gameState.hand);
     sortedHand.forEach(cardId => {
@@ -296,7 +387,6 @@ function renderUI() {
         myHand.appendChild(cardEl);
     });
 
-    // Chat
     const wasAtBottom = chatMessages.scrollHeight - chatMessages.scrollTop <= chatMessages.clientHeight + 10;
     const oldMessageCount = chatMessages.children.length;
     
@@ -315,13 +405,11 @@ function renderUI() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    // Action Buttons State
     const totalSelected = selectedHandCards.size + selectedTableCards.size;
     btnPlay.disabled = selectedHandCards.size === 0;
     btnDiscard.disabled = totalSelected === 0;
     btnTake.disabled = selectedTableCards.size === 0;
 
-    // Update button text to show count
     btnPlay.innerText = `Play (${selectedHandCards.size})`;
     btnDiscard.innerText = `Discard (${totalSelected})`;
     btnTake.innerText = `Take (${selectedTableCards.size})`;

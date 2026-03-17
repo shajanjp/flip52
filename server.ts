@@ -85,10 +85,14 @@ async function broadcast(roomId: string) {
 app.get(
   "/ws",
   upgradeWebSocket((c) => {
+    console.log(`New WS connection attempt from ${c.req.header("user-agent")}`);
     let currentPlayerId: string | null = null;
     let currentRoomId: string | null = null;
 
     return {
+      onOpen: () => {
+        console.log("WS Connection opened");
+      },
       onMessage: async (event, ws) => {
         const data = JSON.parse(event.data as string);
 
@@ -311,4 +315,10 @@ app.get(
 // Serve static files
 app.use("/*", serveStatic({ root: "./public" }));
 
-Deno.serve(app.fetch);
+Deno.serve({ port: 8000, hostname: "0.0.0.0" }, (req) => {
+  const url = new URL(req.url);
+  if (url.pathname === "/ws") {
+    console.log(`Incoming request to /ws: ${req.method} ${req.headers.get("upgrade")}`);
+  }
+  return app.fetch(req);
+});
