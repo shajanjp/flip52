@@ -7,7 +7,7 @@ let selectedTableCards = new Set();
 let gameState = null;
 
 const suitSymbols = { 'S': '♠', 'H': '♥', 'D': '♦', 'C': '♣' };
-const suitOrder = { 'S': 0, 'H': 1, 'C': 2, 'D': 3 };
+const suitOrder = { 'S': 0, 'D': 1, 'C': 2, 'H': 3 };
 const rankOrder = { 
     'A': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7, '9': 8, '10': 9, 'J': 10, 'Q': 11, 'K': 12 
 };
@@ -21,6 +21,7 @@ const btnJoin = document.getElementById('btn-join');
 const displayRoomId = document.getElementById('display-room-id');
 const playerList = document.getElementById('player-list');
 const btnStart = document.getElementById('btn-start');
+const btnQuit = document.getElementById('btn-quit');
 
 const tableCards = document.getElementById('table-cards');
 const myHand = document.getElementById('my-hand');
@@ -110,6 +111,8 @@ btnJoin.onclick = () => {
     const roomId = roomIdInput.value.trim().toUpperCase();
     if (!name) return alert("Please enter your name");
 
+    const playerId = localStorage.getItem('flip52_player_id');
+
     // Request fullscreen on user gesture (with vendor prefixes)
     const docEl = document.documentElement;
     const requestFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
@@ -118,9 +121,9 @@ btnJoin.onclick = () => {
     }
 
     if (roomId) {
-        socket.send(JSON.stringify({ type: "JOIN_ROOM", name, roomId }));
+        socket.send(JSON.stringify({ type: "JOIN_ROOM", name, roomId, playerId }));
     } else {
-        socket.send(JSON.stringify({ type: "CREATE_ROOM", name }));
+        socket.send(JSON.stringify({ type: "CREATE_ROOM", name, playerId }));
     }
     loginOverlay.classList.add('hidden');
 };
@@ -141,6 +144,19 @@ function sendChat() {
         chatInput.value = '';
     }
 }
+
+btnQuit.onclick = () => {
+    if (!confirm("Are you sure you want to quit this room?")) return;
+    socket.send(JSON.stringify({ type: "LEAVE_ROOM" }));
+    localStorage.removeItem('flip52_player_id');
+    gameState = null;
+    myId = null;
+    loginOverlay.classList.remove('hidden');
+    // Clear the URL room param
+    const url = new URL(window.location.href);
+    url.searchParams.delete('room');
+    window.history.pushState({}, '', url);
+};
 
 btnPlay.onclick = () => {
     if (selectedHandCards.size > 0) {
@@ -175,6 +191,11 @@ socket.onmessage = (event) => {
     if (data.type === "ERROR") {
         alert(data.message);
         loginOverlay.classList.remove('hidden');
+        return;
+    }
+
+    if (data.type === "PLAYER_ID") {
+        localStorage.setItem('flip52_player_id', data.playerId);
         return;
     }
 

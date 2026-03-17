@@ -95,7 +95,7 @@ app.get(
         switch (data.type) {
           case "CREATE_ROOM": {
             const roomId = generateRoomId();
-            const playerId = crypto.randomUUID().substring(0, 8);
+            const playerId = data.playerId || crypto.randomUUID().substring(0, 8);
             const roomData: RoomData = {
               roomId,
               hostId: playerId,
@@ -113,6 +113,7 @@ app.get(
             if (!activeConnections.has(roomId)) activeConnections.set(roomId, new Map());
             activeConnections.get(roomId)!.set(playerId, ws as unknown as WebSocket);
             
+            ws.send(JSON.stringify({ type: "PLAYER_ID", playerId }));
             broadcast(roomId);
             break;
           }
@@ -124,14 +125,23 @@ app.get(
               ws.send(JSON.stringify({ type: "ERROR", message: "Room not found" }));
               return;
             }
-            if (room.players.length >= 10) {
-              ws.send(JSON.stringify({ type: "ERROR", message: "Room full" }));
-              return;
+
+            let playerId = data.playerId;
+            let player = room.players.find(p => p.id === playerId);
+
+            if (player) {
+              // Reconnecting
+              room.chat.push({ name: "System", message: `${player.name} reconnected`, type: "activity" });
+            } else {
+              if (room.players.length >= 10) {
+                ws.send(JSON.stringify({ type: "ERROR", message: "Room full" }));
+                return;
+              }
+              playerId = crypto.randomUUID().substring(0, 8);
+              player = { id: playerId, name: data.name, hand: [] };
+              room.players.push(player);
+              room.chat.push({ name: "System", message: `${data.name} joined the room`, type: "activity" });
             }
-            
-            const playerId = crypto.randomUUID().substring(0, 8);
-            room.players.push({ id: playerId, name: data.name, hand: [] });
-            room.chat.push({ name: "System", message: `${data.name} joined the room`, type: "activity" });
             
             await kv.set(["rooms", data.roomId], room);
             currentPlayerId = playerId;
@@ -140,6 +150,7 @@ app.get(
             if (!activeConnections.has(data.roomId)) activeConnections.set(data.roomId, new Map());
             activeConnections.get(data.roomId)!.set(playerId, ws as unknown as WebSocket);
             
+            ws.send(JSON.stringify({ type: "PLAYER_ID", playerId }));
             broadcast(data.roomId);
             break;
           }
@@ -173,6 +184,37 @@ app.get(
             
             await kv.set(["rooms", currentRoomId], room);
             broadcast(currentRoomId);
+            break;
+          }
+
+          case "LEAVE_ROOM": {
+            if (!currentRoomId || !currentPlayerId) return;
+            const roomRes = await kv.get<RoomData>(["rooms", currentRoomId]);
+            const room = roomRes.value;
+            if (room) {
+              const index = room.players.findIndex(p => p.id === currentPlayerId);
+              if (index !== -1) {
+                const playerName = room.players[index].name;
+                room.players.splice(index, 1);
+                
+                const roomWsMap = activeConnections.get(currentRoomId);
+                if (roomWsMap) roomWsMap.delete(currentPlayerId);
+
+                if (room.players.length === 0) {
+                  await kv.delete(["rooms", currentRoomId]);
+                  activeConnections.delete(currentRoomId);
+                } else {
+                  if (room.hostId === currentPlayerId) {
+                    room.hostId = room.players[0].id;
+                  }
+                  room.chat.push({ name: "System", message: `${playerName} left the room`, type: "activity" });
+                  await kv.set(["rooms", currentRoomId], room);
+                  broadcast(currentRoomId);
+                }
+              }
+            }
+            currentPlayerId = null;
+            currentRoomId = null;
             break;
           }
 
@@ -239,28 +281,25 @@ app.get(
       },
       onClose: async () => {
         if (currentRoomId && currentPlayerId) {
+          const roomWsMap = activeConnections.get(currentRoomId);
+          if (roomWsMap) {
+            roomWsMap.delete(currentPlayerId);
+            
+            // If no more connections in the room, we could potentially delete it after a timeout
+            // or just leave it for now since we're using KV and the room stays active
+            if (roomWsMap.size === 0) {
+              // activeConnections.delete(currentRoomId);
+            }
+          }
+          
           const roomRes = await kv.get<RoomData>(["rooms", currentRoomId]);
           const room = roomRes.value;
           if (room) {
-            const index = room.players.findIndex(p => p.id === currentPlayerId);
-            if (index !== -1) {
-              const playerName = room.players[index].name;
-              room.players.splice(index, 1);
-              
-              const roomWsMap = activeConnections.get(currentRoomId);
-              if (roomWsMap) roomWsMap.delete(currentPlayerId);
-
-              if (room.players.length === 0) {
-                await kv.delete(["rooms", currentRoomId]);
-                activeConnections.delete(currentRoomId);
-              } else {
-                if (room.hostId === currentPlayerId) {
-                  room.hostId = room.players[0].id;
-                }
-                room.chat.push({ name: "System", message: `${playerName} left the room`, type: "activity" });
-                await kv.set(["rooms", currentRoomId], room);
-                broadcast(currentRoomId);
-              }
+            const player = room.players.find(p => p.id === currentPlayerId);
+            if (player) {
+              room.chat.push({ name: "System", message: `${player.name} disconnected`, type: "activity" });
+              await kv.set(["rooms", currentRoomId], room);
+              broadcast(currentRoomId);
             }
           }
         }
