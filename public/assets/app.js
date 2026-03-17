@@ -178,7 +178,7 @@ function connect(force = false) {
 
     socket.onerror = (err) => {
         console.error("WebSocket error:", err);
-        alert("Connection Error to: " + wsUrl + "\n\nPlease check if the server is running and accessible. If using a local IP, ensure your phone is on the same Wi-Fi.");
+        console.log("Connection Error to: " + wsUrl + "\n\nPlease check if the server is running and accessible. If using a local IP, ensure your phone is on the same Wi-Fi.");
     };
 }
 
