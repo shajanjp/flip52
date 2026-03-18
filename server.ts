@@ -64,7 +64,8 @@ async function broadcast(roomId: string) {
     players: room.players.map(p => ({
       id: p.id,
       name: p.name,
-      handCount: p.hand.length
+      handCount: p.hand.length,
+      online: roomWsMap ? roomWsMap.has(p.id) : false
     }))
   };
 
