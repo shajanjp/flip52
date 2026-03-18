@@ -15,7 +15,7 @@ interface RoomData {
   roomId: string;
   hostId: string;
   players: Player[];
-  table: string[];
+  table: { cardId: string; playedBy: string }[];
   discard: string[];
   chat: { name: string; message: string; type: "chat" | "activity" }[];
   state: "WAITING" | "PLAYING";
@@ -226,8 +226,7 @@ app.get(
           case "PLAY_CARD":
           case "TAKE_CARD":
           case "DISCARD_CARD":
-          case "SEND_CHAT":
-          case "END_TURN": {
+          case "SEND_CHAT": {
             if (!currentRoomId || !currentPlayerId) return;
             const roomRes = await kv.get<RoomData>(["rooms", currentRoomId]);
             const room = roomRes.value;
@@ -243,13 +242,13 @@ app.get(
                 const index = player.hand.indexOf(cardId);
                 if (index !== -1) {
                   player.hand.splice(index, 1);
-                  room.table.push(cardId);
+                  room.table.push({ cardId, playedBy: player.name });
                   room.chat.push({ name: "System", message: `${player.name} played ${cardId}`, type: "activity" });
                 }
               }
             } else if (data.type === "TAKE_CARD") {
               for (const cardId of cardIds) {
-                const index = room.table.indexOf(cardId);
+                const index = room.table.findIndex(t => t.cardId === cardId);
                 if (index !== -1) {
                   room.table.splice(index, 1);
                   player.hand.push(cardId);
@@ -264,7 +263,7 @@ app.get(
                   room.discard.push(cardId);
                   room.chat.push({ name: "System", message: `${player.name} discarded ${cardId} from hand`, type: "activity" });
                 } else {
-                  index = room.table.indexOf(cardId);
+                  index = room.table.findIndex(t => t.cardId === cardId);
                   if (index !== -1) {
                     room.table.splice(index, 1);
                     room.discard.push(cardId);
@@ -274,8 +273,6 @@ app.get(
               }
             } else if (data.type === "SEND_CHAT") {
               room.chat.push({ name: player.name, message: data.message, type: "chat" });
-            } else if (data.type === "END_TURN") {
-              room.chat.push({ name: "System", message: `${player.name} ended their turn`, type: "activity" });
             }
 
             await kv.set(["rooms", currentRoomId], room);

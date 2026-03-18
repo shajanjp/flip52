@@ -193,7 +193,7 @@ function connect(force = false) {
             gameState = data;
             myId = data.myId;
             const currentHand = new Set(data.hand);
-            const currentTable = new Set(data.table);
+            const currentTable = new Set(data.table.map(t => t.cardId));
             selectedHandCards = new Set([...selectedHandCards].filter(id => currentHand.has(id)));
             selectedTableCards = new Set([...selectedTableCards].filter(id => currentTable.has(id)));
             renderUI();
@@ -437,9 +437,18 @@ function renderUI() {
     }
 
     tableCards.innerHTML = '';
-    gameState.table.forEach((cardId) => {
+    gameState.table.forEach((item) => {
+        const { cardId, playedBy } = item;
+        const cardWrapper = document.createElement('div');
+        cardWrapper.className = 'flex flex-col items-center gap-1';
+        
         const cardEl = createCardElement(cardId);
         if (selectedTableCards.has(cardId)) cardEl.classList.add('selected');
+        
+        const playedByEl = document.createElement('div');
+        playedByEl.className = 'text-[10px] text-gray-400 font-medium truncate max-w-[60px]';
+        playedByEl.innerText = playedBy;
+        
         cardEl.onclick = () => {
             if (selectedTableCards.has(cardId)) {
                 selectedTableCards.delete(cardId);
@@ -448,7 +457,10 @@ function renderUI() {
             }
             renderUI();
         };
-        tableCards.appendChild(cardEl);
+        
+        cardWrapper.appendChild(cardEl);
+        cardWrapper.appendChild(playedByEl);
+        tableCards.appendChild(cardWrapper);
     });
 
     myHand.innerHTML = '';
