@@ -462,9 +462,20 @@ function renderUI() {
         </div>
     `).join('');
 
+    const startIcon = document.getElementById('start-icon');
+    const restartIcon = document.getElementById('restart-icon');
+
     if (gameState.hostId === myId && gameState.players.length >= 2) {
         btnStart.classList.remove('hidden');
-        btnStart.innerText = gameState.state === 'PLAYING' ? 'RESTART' : 'START';
+        if (gameState.state === 'PLAYING') {
+            startIcon.classList.add('hidden');
+            restartIcon.classList.remove('hidden');
+            btnStart.title = "Restart Game";
+        } else {
+            startIcon.classList.remove('hidden');
+            restartIcon.classList.add('hidden');
+            btnStart.title = "Start Game";
+        }
     } else {
         btnStart.classList.add('hidden');
     }
