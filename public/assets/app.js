@@ -94,6 +94,39 @@ const chatPopup = document.getElementById('chat-popup');
 const chatClose = document.getElementById('chat-close');
 const chatBadge = document.getElementById('chat-badge');
 
+// Theme Toggle
+const themeToggle = document.getElementById('theme-toggle');
+const sunIcon = document.getElementById('sun-icon');
+const moonIcon = document.getElementById('moon-icon');
+
+function initTheme() {
+    if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+        sunIcon.classList.remove('hidden');
+        moonIcon.classList.add('hidden');
+    } else {
+        document.documentElement.classList.remove('dark');
+        sunIcon.classList.add('hidden');
+        moonIcon.classList.remove('hidden');
+    }
+}
+
+themeToggle.onclick = () => {
+    if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+        sunIcon.classList.add('hidden');
+        moonIcon.classList.remove('hidden');
+    } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+        sunIcon.classList.remove('hidden');
+        moonIcon.classList.add('hidden');
+    }
+};
+
+initTheme();
+
 const suitSymbols = { 'S': '♠', 'H': '♥', 'D': '♦', 'C': '♣' };
 const suitOrder = { 'S': 0, 'D': 1, 'C': 2, 'H': 3 };
 const rankOrder = { 
@@ -419,11 +452,11 @@ function renderUI() {
     
     playerList.innerHTML = gameState.players.map(p => `
         <div class="flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold whitespace-nowrap shadow-sm
-            ${p.id === myId ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-200'}">
-            <div class="w-1.5 h-1.5 rounded-full ${p.online ? 'bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.5)]' : 'bg-gray-300'}"></div>
+            ${p.id === myId ? 'bg-blue-600 text-white border-blue-700' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700'}">
+            <div class="w-1.5 h-1.5 rounded-full ${p.online ? 'bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.5)]' : 'bg-gray-300 dark:bg-gray-600'}"></div>
             <span class="max-w-[80px] truncate">${p.name}</span>
             <span class="opacity-70 px-1.5 py-0.5 rounded-full text-[10px] 
-                ${p.id === myId ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'}">
+                ${p.id === myId ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}">
                 ${p.handCount}
             </span>
         </div>
@@ -446,7 +479,7 @@ function renderUI() {
         if (selectedTableCards.has(cardId)) cardEl.classList.add('selected');
         
         const playedByEl = document.createElement('div');
-        playedByEl.className = 'text-[10px] text-gray-400 font-medium truncate max-w-[60px]';
+        playedByEl.className = 'text-[10px] text-gray-400 dark:text-gray-500 font-medium truncate max-w-[60px]';
         playedByEl.innerText = playedBy;
         
         cardEl.onclick = () => {
@@ -494,8 +527,8 @@ function renderUI() {
 
     chatMessages.innerHTML = filteredChat.map(c => `
         <div class="mb-1 leading-tight">
-            <span class="font-bold ${c.type === 'activity' ? 'text-gray-400 text-xs' : 'text-blue-500'}">${c.type === 'activity' ? 'SYSTEM' : c.name}:</span>
-            <span class="${c.type === 'activity' ? 'italic text-gray-500' : 'text-gray-800'}">${c.type === 'activity' ? formatActivity(c.message) : c.message}</span>
+            <span class="font-bold ${c.type === 'activity' ? 'text-gray-400 dark:text-gray-500 text-xs' : 'text-blue-500'}">${c.type === 'activity' ? 'SYSTEM' : c.name}:</span>
+            <span class="${c.type === 'activity' ? 'italic text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'}">${c.type === 'activity' ? formatActivity(c.message) : c.message}</span>
         </div>
     `).join('');
 

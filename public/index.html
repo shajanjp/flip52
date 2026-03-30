@@ -19,6 +19,11 @@
     <meta property="og:url" content="https://flip52.app">
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     <style>
         .card {
             width: 54px;
@@ -71,22 +76,22 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 flex flex-col min-h-screen">
+<body class="bg-gray-100 dark:bg-gray-950 flex flex-col min-h-screen transition-colors duration-300">
 
     <!-- Login/Join Overlay -->
     <div id="login-overlay" class="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-md flex items-center justify-center z-[100]">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-80 border border-gray-100">
-            <h2 class="text-2xl font-black mb-6 text-gray-800 text-center">Flip 52</h2>
+        <div class="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-2xl w-80 border border-gray-100 dark:border-gray-800">
+            <h2 class="text-2xl font-black mb-6 text-gray-800 dark:text-white text-center">Flip 52</h2>
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Your Name</label>
-                    <input id="player-name" type="text" placeholder="Enter name..." class="w-full border-2 border-gray-100 p-3 rounded-xl outline-none focus:border-blue-500 transition-colors">
+                    <input id="player-name" type="text" placeholder="Enter name..." class="w-full border-2 border-gray-100 dark:border-gray-800 dark:bg-gray-800 dark:text-white p-3 rounded-xl outline-none focus:border-blue-500 transition-colors">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Room ID (Optional)</label>
-                    <input id="room-id" type="text" placeholder="ABCD" class="w-full border-2 border-gray-100 p-3 rounded-xl outline-none focus:border-blue-500 transition-colors uppercase">
+                    <input id="room-id" type="text" placeholder="ABCD" class="w-full border-2 border-gray-100 dark:border-gray-800 dark:bg-gray-800 dark:text-white p-3 rounded-xl outline-none focus:border-blue-500 transition-colors uppercase">
                 </div>
-                <button id="btn-join" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl font-bold shadow-lg shadow-blue-200 transition-all active:scale-95">
+                <button id="btn-join" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl font-bold shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95">
                     Join Game
                 </button>
             </div>
@@ -94,48 +99,52 @@
     </div>
 
     <!-- Room Header -->
-    <header class="bg-white shadow sticky top-0 z-30">
-        <div class="px-4 py-2 flex justify-between items-center border-b border-gray-50">
+    <header class="bg-white dark:bg-gray-900 shadow sticky top-0 z-30 transition-colors duration-300">
+        <div class="px-4 py-2 flex justify-between items-center border-b border-gray-50 dark:border-gray-800">
             <div class="flex items-center gap-4">
                 <span class="font-black text-lg tracking-tighter text-blue-600">Flip 52</span>
-                <div class="flex items-center gap-1.5 border-l pl-3 border-gray-100">
+                <div class="flex items-center gap-1.5 border-l pl-3 border-gray-100 dark:border-gray-800">
                     <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Room</span>
-                    <span id="display-room-id" class="font-mono bg-gray-50 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-100 text-xs border border-gray-100" title="Click to copy link">------</span>
+                    <span id="display-room-id" class="font-mono bg-gray-50 dark:bg-gray-800 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-xs border border-gray-100 dark:border-gray-700 dark:text-gray-300" title="Click to copy link">------</span>
                 </div>
             </div>
             <div class="flex items-center gap-2">
+                <button id="theme-toggle" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-all active:scale-95" title="Toggle Dark Mode">
+                    <svg id="sun-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464l-.707-.707a1 1 0 00-1.414 1.414l.707.707a1 1 0 001.414-1.414zm2.12 10.607a1 1 0 01-1.414 0l-.707-.707a1 1 0 011.414-1.414l.707.707a1 1 0 010 1.414zM5 11a1 1 0 110-2H4a1 1 0 110 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
+                    <svg id="moon-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                </button>
                 <button id="btn-quit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest shadow-sm active:scale-95 transition-all">Quit</button>
                 <button id="btn-start" class="hidden bg-green-500 hover:bg-green-600 text-white px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest shadow-sm active:scale-95 transition-all">Start</button>
             </div>
         </div>
-        <div id="player-list" class="flex gap-2 overflow-x-auto whitespace-nowrap px-4 py-2 no-scrollbar bg-gray-50/50 items-center min-h-[44px] transition-all duration-300 ease-in-out">
+        <div id="player-list" class="flex gap-2 overflow-x-auto whitespace-nowrap px-4 py-2 no-scrollbar bg-gray-50/50 dark:bg-gray-900/50 items-center min-h-[44px] transition-all duration-300 ease-in-out">
             <!-- Players as chips here -->
         </div>
     </header>
 
     <!-- Table Area -->
     <main class="p-4 flex-1">
-        <div class="table-area p-4 card-grid" id="table-cards">
+        <div class="table-area p-4 card-grid dark:bg-emerald-950/50" id="table-cards">
             <!-- Table cards here -->
         </div>
     </main>
 
     <!-- System Message Ticker -->
-    <div class="bg-gray-100 border-y border-gray-200 h-8 overflow-hidden relative">
+    <div class="bg-gray-100 dark:bg-gray-900 border-y border-gray-200 dark:border-gray-800 h-8 overflow-hidden relative">
         <div id="system-ticker" class="absolute inset-0 flex items-center justify-center px-4 transition-transform duration-500 ease-in-out translate-y-full">
-            <span class="text-xs font-bold text-gray-500 italic text-center truncate"></span>
+            <span class="text-xs font-bold text-gray-500 dark:text-gray-400 italic text-center truncate"></span>
         </div>
     </div>
 
     <!-- My Hand -->
-    <section class="bg-gray-200 p-4 border-t border-gray-300">
+    <section class="bg-gray-200 dark:bg-gray-950 p-4 border-t border-gray-300 dark:border-gray-800">
         <div id="my-hand" class="card-grid">
             <!-- My cards here -->
         </div>
     </section>
 
     <!-- Action Bar -->
-    <nav class="bg-white border-t p-4 flex justify-around gap-2 sticky bottom-0 z-20">
+    <nav class="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 p-4 flex justify-around gap-2 sticky bottom-0 z-20">
         <button id="btn-play" class="flex-1 bg-blue-500 text-white py-2 rounded font-bold disabled:opacity-50">Play</button>
         <button id="btn-take" class="flex-1 bg-yellow-500 text-white py-2 rounded font-bold disabled:opacity-50">Take</button>
         <button id="btn-discard" class="flex-1 bg-red-500 text-white py-2 rounded font-bold disabled:opacity-50">Discard</button>
@@ -144,18 +153,18 @@
     <!-- Chat Components -->
     <div class="fixed bottom-24 right-4 z-50 pointer-events-none md:pointer-events-auto">
         <!-- Chat Popup -->
-        <div id="chat-popup" class="fixed inset-0 md:absolute md:inset-auto md:bottom-20 md:right-0 md:w-80 md:h-96 bg-white md:rounded-lg shadow-2xl flex flex-col hidden border border-gray-200 pointer-events-auto">
+        <div id="chat-popup" class="fixed inset-0 md:absolute md:inset-auto md:bottom-20 md:right-0 md:w-80 md:h-96 bg-white dark:bg-gray-800 md:rounded-lg shadow-2xl flex flex-col hidden border border-gray-200 dark:border-gray-700 pointer-events-auto">
             <div class="bg-blue-600 text-white p-3 md:rounded-t-lg flex justify-between items-center shrink-0">
                 <span class="font-bold">Chat</span>
                 <button id="chat-close" class="hover:text-gray-200 p-1">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>
-            <div id="chat-messages" class="flex-1 overflow-y-auto p-3 text-sm bg-white">
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-3 text-sm bg-white dark:bg-gray-900">
                 <!-- Chat messages here -->
             </div>
-            <div class="flex border-t p-3 bg-gray-50 md:rounded-b-lg pb-safe">
-                <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 p-3 border rounded-l-xl outline-none focus:ring-2 focus:ring-blue-500 text-base">
+            <div class="flex border-t border-gray-100 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-800 md:rounded-b-lg pb-safe">
+                <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 p-3 border dark:border-gray-700 dark:bg-gray-900 dark:text-white rounded-l-xl outline-none focus:ring-2 focus:ring-blue-500 text-base">
                 <button id="btn-send" class="bg-blue-600 text-white px-6 py-3 rounded-r-xl font-bold hover:bg-blue-700 transition-colors">Send</button>
             </div>
         </div>
