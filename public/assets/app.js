@@ -93,6 +93,41 @@ const chatToggle = document.getElementById('chat-toggle');
 const chatPopup = document.getElementById('chat-popup');
 const chatClose = document.getElementById('chat-close');
 const chatBadge = document.getElementById('chat-badge');
+const toastContainer = document.getElementById('toast-container');
+
+function showToast(name, message) {
+    const toast = document.createElement('div');
+    toast.className = 'bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 p-3 rounded-xl pointer-events-auto transition-all duration-300 transform translate-y-4 opacity-0 scale-95';
+    toast.innerHTML = `
+        <div class="flex flex-col gap-0.5">
+            <span class="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">New Message</span>
+            <div class="flex flex-col">
+                <span class="font-bold text-gray-900 dark:text-white text-xs shrink-0">${name}:</span>
+                <span class="text-gray-600 dark:text-gray-300 text-sm line-clamp-3 break-words whitespace-pre-wrap">${message}</span>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Animate In
+    requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-4', 'opacity-0', 'scale-95');
+        toast.classList.add('translate-y-0', 'opacity-100', 'scale-100');
+    });
+
+    // Animate Out
+    setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100', 'scale-100');
+        toast.classList.add('-translate-y-4', 'opacity-0', 'scale-95');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+
+    toast.onclick = () => {
+        chatToggle.onclick();
+        toast.remove();
+    };
+}
 
 // Theme Toggle
 const themeToggle = document.getElementById('theme-toggle');
@@ -219,6 +254,10 @@ function connect(force = false) {
                         
                         tickerQueue.push(m);
                         processTicker();
+                    } else if (msg.name && msg.playerId !== myId) {
+                        if (chatPopup.classList.contains('hidden')) {
+                            showToast(msg.name, msg.message);
+                        }
                     }
                 });
             }
@@ -280,7 +319,6 @@ if (roomParam) {
 chatToggle.onclick = () => {
     chatPopup.classList.toggle('hidden');
     if (!chatPopup.classList.contains('hidden')) {
-        chatToggle.classList.add('hidden');
         chatBadge.classList.add('hidden');
         chatMessages.scrollTop = chatMessages.scrollHeight;
         chatInput.focus();
@@ -288,7 +326,6 @@ chatToggle.onclick = () => {
 };
 chatClose.onclick = () => {
     chatPopup.classList.add('hidden');
-    chatToggle.classList.remove('hidden');
 };
 
 // Helper to copy text to clipboard with fallback
