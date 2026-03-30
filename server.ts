@@ -270,38 +270,50 @@ app.get(
             const cardIds = Array.isArray(data.cardIds) ? data.cardIds : (data.cardId ? [data.cardId] : []);
 
             if (data.type === "PLAY_CARD") {
+              const played: string[] = [];
               for (const cardId of cardIds) {
                 const index = player.hand.indexOf(cardId);
                 if (index !== -1) {
                   player.hand.splice(index, 1);
                   room.table.push({ cardId, playedBy: player.name });
-                  room.chat.push({ name: "System", message: `${player.name} played ${cardId}`, type: "activity" });
+                  played.push(cardId);
                 }
               }
+              if (played.length > 0) {
+                room.chat.push({ name: "System", message: `${player.name} played ${played.join(", ")}`, type: "activity" });
+              }
             } else if (data.type === "TAKE_CARD") {
+              const taken: string[] = [];
               for (const cardId of cardIds) {
                 const index = room.table.findIndex(t => t.cardId === cardId);
                 if (index !== -1) {
                   room.table.splice(index, 1);
                   player.hand.push(cardId);
-                  room.chat.push({ name: "System", message: `${player.name} took ${cardId} from table`, type: "activity" });
+                  taken.push(cardId);
                 }
               }
+              if (taken.length > 0) {
+                room.chat.push({ name: "System", message: `${player.name} took ${taken.join(", ")} from table`, type: "activity" });
+              }
             } else if (data.type === "DISCARD_CARD") {
+              const discarded: string[] = [];
               for (const cardId of cardIds) {
                 let index = player.hand.indexOf(cardId);
                 if (index !== -1) {
                   player.hand.splice(index, 1);
                   room.discard.push(cardId);
-                  room.chat.push({ name: "System", message: `${player.name} discarded ${cardId} from hand`, type: "activity" });
+                  discarded.push(cardId);
                 } else {
                   index = room.table.findIndex(t => t.cardId === cardId);
                   if (index !== -1) {
                     room.table.splice(index, 1);
                     room.discard.push(cardId);
-                    room.chat.push({ name: "System", message: `${player.name} discarded ${cardId} from table`, type: "activity" });
+                    discarded.push(cardId);
                   }
                 }
+              }
+              if (discarded.length > 0) {
+                room.chat.push({ name: "System", message: `${player.name} discarded ${discarded.join(", ")}`, type: "activity" });
               }
             } else if (data.type === "SEND_CHAT") {
               room.chat.push({ name: player.name, message: data.message, type: "chat" });

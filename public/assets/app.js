@@ -517,7 +517,7 @@ btnDiscard.onclick = () => {
 
 function formatActivity(message) {
     return message.replace(/\b([AJQK102-9]+)([SHDC])\b/g, (match, rank, suit) => {
-        return `<span class="suit-${suit} font-bold">${rank}${suitSymbols[suit]}</span>`;
+        return `<span class="card-tag suit-${suit} font-bold">${rank}${suitSymbols[suit]}</span>`;
     });
 }
 
