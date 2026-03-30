@@ -250,6 +250,22 @@ function connect(force = false) {
             return;
         }
 
+        if (data.type === "CELEBRATE") {
+            // Debounce confetti to avoid over-firing if multiple scores are updated at once
+            if (!window._confettiTimeout) {
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    zIndex: 9999
+                });
+                window._confettiTimeout = setTimeout(() => {
+                    window._confettiTimeout = null;
+                }, 1000);
+            }
+            return;
+        }
+
         if (data.type === "ROOM_STATE") {
             if (gameState) {
                 const newMessages = data.chat.slice(lastChatLength);

@@ -251,7 +251,19 @@ app.get(
             });
 
             await kv.set(["rooms", currentRoomId], room);
+            
+            // Broadcast the room state as usual
             broadcast(currentRoomId);
+            
+            // Broadcast the celebration event
+            const roomWsMap = activeConnections.get(currentRoomId);
+            if (roomWsMap) {
+              for (const ws of roomWsMap.values()) {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: "CELEBRATE" }));
+                }
+              }
+            }
             break;
           }
 
