@@ -325,16 +325,14 @@ app.get(
           }
         }
       },
-      onClose: async () => {
+      onClose: async (event, ws) => {
         if (currentRoomId && currentPlayerId) {
           const roomWsMap = activeConnections.get(currentRoomId);
-          if (roomWsMap) {
+          if (roomWsMap && roomWsMap.get(currentPlayerId) === (ws as unknown as WebSocket)) {
             roomWsMap.delete(currentPlayerId);
             
-            // If no more connections in the room, we could potentially delete it after a timeout
-            // or just leave it for now since we're using KV and the room stays active
             if (roomWsMap.size === 0) {
-              // activeConnections.delete(currentRoomId);
+              activeConnections.delete(currentRoomId);
             }
           }
           
@@ -355,6 +353,34 @@ app.get(
 );
 
 // Serve static files
+app.get("/dashboard", async (c) => {
+  return c.html(await Deno.readTextFile("./public/dashboard.html"));
+});
+
+app.get("/api/rooms", async (c) => {
+  const rooms: any[] = [];
+  const iter = kv.list({ prefix: ["rooms"] });
+  for await (const res of iter) {
+    const room = res.value as RoomData;
+    const host = room.players.find(p => p.id === room.hostId);
+    const roomWsMap = activeConnections.get(room.roomId);
+    rooms.push({
+      roomId: room.roomId,
+      players: room.players.map(p => ({ 
+        name: p.name, 
+        id: p.id,
+        online: roomWsMap ? roomWsMap.has(p.id) : false
+      })),
+      hostName: host ? host.name : "Unknown",
+      state: room.state
+    });
+  }
+  return c.json({
+    rooms,
+    timestamp: Date.now()
+  });
+});
+
 app.use("/*", serveStatic({ root: "./public" }));
 
 Deno.serve({ port: 8000, hostname: "0.0.0.0" }, (req) => {
