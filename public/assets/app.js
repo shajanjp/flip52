@@ -95,6 +95,14 @@ const chatClose = document.getElementById('chat-close');
 const chatBadge = document.getElementById('chat-badge');
 const toastContainer = document.getElementById('toast-container');
 
+// Scoreboard Elements
+const scoreboardToggle = document.getElementById('scoreboard-toggle');
+const scoreboardModal = document.getElementById('scoreboard-modal');
+const scoreboardClose = document.getElementById('scoreboard-close');
+const scoreboardList = document.getElementById('scoreboard-list');
+const btnSaveScores = document.getElementById('btn-save-scores');
+let localScores = {}; // Temporary scores while modal is open
+
 function showToast(name, message) {
     const toast = document.createElement('div');
     toast.className = 'bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 p-3 rounded-xl pointer-events-auto transition-all duration-300 transform translate-y-4 opacity-0 scale-95';
@@ -328,6 +336,51 @@ chatClose.onclick = () => {
     chatPopup.classList.add('hidden');
 };
 
+// Toggle Scoreboard
+scoreboardToggle.onclick = () => {
+    if (!gameState) return;
+    localScores = { ...gameState.scores };
+    renderScoreboard();
+    scoreboardModal.classList.remove('hidden');
+};
+
+scoreboardClose.onclick = () => {
+    scoreboardModal.classList.add('hidden');
+};
+
+function renderScoreboard() {
+    scoreboardList.innerHTML = gameState.players.map(p => {
+        const score = localScores[p.id] || 0;
+        return `
+            <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                <div class="flex flex-col">
+                    <span class="font-bold text-gray-800 dark:text-gray-200">${p.name} ${p.id === myId ? '(You)' : ''}</span>
+                    <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Current: ${gameState.scores[p.id] || 0}</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="updateLocalScore('${p.id}', -1)" class="w-8 h-8 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 active:scale-90 transition-all shadow-sm">-</button>
+                    <span class="font-black text-lg w-8 text-center text-blue-600 dark:text-blue-400">${score}</span>
+                    <button onclick="updateLocalScore('${p.id}', 1)" class="w-8 h-8 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 active:scale-90 transition-all shadow-sm">+</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+window.updateLocalScore = (playerId, delta) => {
+    localScores[playerId] = (localScores[playerId] || 0) + delta;
+    renderScoreboard();
+};
+
+btnSaveScores.onclick = () => {
+    Object.entries(localScores).forEach(([playerId, newScore]) => {
+        if (newScore !== gameState.scores[playerId]) {
+            sendSocketMessage({ type: "UPDATE_SCORE", targetPlayerId: playerId, newScore });
+        }
+    });
+    scoreboardModal.classList.add('hidden');
+};
+
 // Helper to copy text to clipboard with fallback
 async function copyToClipboard(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -486,6 +539,13 @@ function renderUI() {
     if (!gameState) return;
 
     displayRoomId.innerText = gameState.roomId;
+
+    if (!gameState.scores) gameState.scores = {};
+    
+    // Refresh scoreboard if modal is open
+    if (!scoreboardModal.classList.contains('hidden')) {
+        renderScoreboard();
+    }
     
     playerList.innerHTML = gameState.players.map(p => `
         <div class="flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold whitespace-nowrap shadow-sm

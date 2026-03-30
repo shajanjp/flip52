@@ -17,8 +17,9 @@ interface RoomData {
   players: Player[];
   table: { cardId: string; playedBy: string }[];
   discard: string[];
-  chat: { name: string; message: string; type: "chat" | "activity" }[];
+  chat: { name: string; message: string; type: "chat" | "activity"; playerId?: string }[];
   state: "WAITING" | "PLAYING";
+  scores: Record<string, number>;
 }
 
 const activeConnections = new Map<string, Map<string, WebSocket>>();
@@ -61,6 +62,7 @@ async function broadcast(roomId: string) {
     table: room.table,
     chat: room.chat,
     state: room.state,
+    scores: room.scores,
     players: room.players.map(p => ({
       id: p.id,
       name: p.name,
@@ -108,7 +110,8 @@ app.get(
               table: [],
               discard: [],
               chat: [{ name: "System", message: `${data.name} created the room`, type: "activity" }],
-              state: "WAITING"
+              state: "WAITING",
+              scores: { [playerId]: 0 }
             };
             
             await kv.set(["rooms", roomId], roomData);
@@ -134,6 +137,8 @@ app.get(
             let playerId = data.playerId;
             let player = room.players.find(p => p.id === playerId);
 
+            if (!room.scores) room.scores = {};
+
             if (player) {
               // Reconnecting
               room.chat.push({ name: "System", message: `${player.name} reconnected`, type: "activity" });
@@ -145,6 +150,7 @@ app.get(
               playerId = crypto.randomUUID().substring(0, 8);
               player = { id: playerId, name: data.name, hand: [] };
               room.players.push(player);
+              room.scores[playerId] = 0;
               room.chat.push({ name: "System", message: `${data.name} joined the room`, type: "activity" });
             }
             
@@ -220,6 +226,32 @@ app.get(
             }
             currentPlayerId = null;
             currentRoomId = null;
+            break;
+          }
+
+          case "UPDATE_SCORE": {
+            if (!currentRoomId || !currentPlayerId) return;
+            const roomRes = await kv.get<RoomData>(["rooms", currentRoomId]);
+            const room = roomRes.value;
+            if (!room) return;
+
+            const player = room.players.find(p => p.id === currentPlayerId);
+            if (!player) return;
+
+            const targetPlayer = room.players.find(p => p.id === data.targetPlayerId);
+            if (!targetPlayer) return;
+
+            if (!room.scores) room.scores = {};
+            room.scores[data.targetPlayerId] = data.newScore;
+            
+            room.chat.push({ 
+              name: "System", 
+              message: `${player.name} updated ${targetPlayer.name}'s score to ${data.newScore}`, 
+              type: "activity" 
+            });
+
+            await kv.set(["rooms", currentRoomId], room);
+            broadcast(currentRoomId);
             break;
           }
 

@@ -113,6 +113,9 @@
                     <svg id="sun-icon" class="hidden w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
                     <svg id="moon-icon" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
                 </button>
+                <button id="scoreboard-toggle" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-all active:scale-95" title="Scoreboard">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg>
+                </button>
                 <button id="chat-toggle" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-all active:scale-95 relative" title="Open Chat">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
                     <span id="chat-badge" class="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white dark:border-gray-900 hidden"></span>
@@ -164,6 +167,26 @@
 
     <!-- Chat Components -->
     <div id="chat-container" class="fixed inset-0 z-50 pointer-events-none">
+        <!-- Scoreboard Modal -->
+        <div id="scoreboard-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden pointer-events-auto">
+            <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <div class="bg-blue-600 p-4 flex justify-between items-center">
+                    <h3 class="text-white font-black uppercase tracking-widest text-sm">Scoreboard</h3>
+                    <button id="scoreboard-close" class="text-white hover:text-blue-100 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div id="scoreboard-list" class="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+                    <!-- Player scores here -->
+                </div>
+                <div class="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+                    <button id="btn-save-scores" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-200 dark:shadow-none">
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Chat Popup -->
         <div id="chat-popup" class="fixed inset-0 md:absolute md:inset-auto md:top-14 md:right-4 md:w-80 md:h-96 bg-white dark:bg-gray-800 md:rounded-lg shadow-2xl flex flex-col hidden border border-gray-200 dark:border-gray-700 pointer-events-auto">
             <div class="bg-blue-600 text-white p-3 md:rounded-t-lg flex justify-between items-center shrink-0">
