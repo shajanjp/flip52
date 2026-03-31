@@ -98,11 +98,11 @@
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Your Name</label>
-                    <input id="player-name" type="text" placeholder="Enter name..." class="w-full border-2 border-gray-100 dark:border-gray-800 dark:bg-gray-800 dark:text-white p-3 rounded-xl outline-none focus:border-blue-500 transition-colors">
+                    <input id="player-name" type="text" placeholder="Enter name..." class="w-full border border-gray-100 dark:border-gray-800 dark:bg-gray-800 dark:text-white p-3 rounded-xl outline-none focus:border-blue-500 transition-colors">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Room ID (Optional)</label>
-                    <input id="room-id" type="text" placeholder="ABCD" class="w-full border-2 border-gray-100 dark:border-gray-800 dark:bg-gray-800 dark:text-white p-3 rounded-xl outline-none focus:border-blue-500 transition-colors uppercase">
+                    <input id="room-id" type="text" placeholder="ABCD" class="w-full border border-gray-100 dark:border-gray-800 dark:bg-gray-800 dark:text-white p-3 rounded-xl outline-none focus:border-blue-500 transition-colors uppercase">
                 </div>
                 <button id="btn-join" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl font-bold shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95">
                     Join Game
@@ -221,7 +221,7 @@
         </div>
 
         <!-- Chat Popup -->
-        <div id="chat-popup" class="fixed inset-0 md:absolute md:inset-auto md:top-14 md:right-4 md:w-80 md:h-96 bg-white dark:bg-gray-800 md:rounded-lg shadow-2xl flex flex-col hidden border border-gray-200 dark:border-gray-700 pointer-events-auto">
+        <div id="chat-popup" class="fixed inset-0 md:absolute md:inset-auto md:top-14 md:right-4 md:w-80 md:h-96 bg-white dark:bg-gray-800 md:rounded-lg shadow-2xl flex flex-col hidden border border-gray-200 dark:border-gray-700 pointer-events-auto overflow-hidden">
             <div class="bg-blue-600 text-white p-3 md:rounded-t-lg flex justify-between items-center shrink-0">
                 <span class="font-bold">Chat</span>
                 <button id="chat-close" class="hover:text-gray-200 p-1">
@@ -232,8 +232,8 @@
                 <!-- Chat messages here -->
             </div>
             <div class="flex border-t border-gray-100 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-800 md:rounded-b-lg pb-safe">
-                <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 p-3 border dark:border-gray-700 dark:bg-gray-900 dark:text-white rounded-l-xl outline-none focus:ring-2 focus:ring-blue-500 text-base">
-                <button id="btn-send" class="bg-blue-600 text-white px-6 py-3 rounded-r-xl font-bold hover:bg-blue-700 transition-colors">Send</button>
+                <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 min-w-0 p-3 border dark:border-gray-700 dark:bg-gray-900 dark:text-white rounded-l-xl outline-none focus:border-blue-500 transition-colors text-base">
+                <button id="btn-send" class="bg-blue-600 text-white px-6 py-3 rounded-r-xl font-bold hover:bg-blue-700 transition-colors shrink-0">Send</button>
             </div>
         </div>
     </div>
