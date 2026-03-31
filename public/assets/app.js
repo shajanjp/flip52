@@ -189,6 +189,90 @@ function sendSocketMessage(msg) {
     }
 }
 
+let roomChannel = null;
+
+function handleRoomEvent(data, fromBroadcast = false) {
+    // Re-broadcast to other tabs if this came from WebSocket
+    if (!fromBroadcast && roomChannel && (data.type === "ROOM_STATE" || data.type === "HAND_UPDATE" || data.type === "CELEBRATE")) {
+        roomChannel.postMessage(data);
+    }
+
+    if (data.type === "CELEBRATE") {
+        // Debounce confetti to avoid over-firing if multiple scores are updated at once
+        if (!window._confettiTimeout) {
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                zIndex: 9999
+            });
+            window._confettiTimeout = setTimeout(() => {
+                window._confettiTimeout = null;
+            }, 1000);
+        }
+        return;
+    }
+
+    if (data.type === "HAND_UPDATE") {
+        if (gameState) {
+            gameState.hand = data.hand;
+        } else {
+            // Partial state if ROOM_STATE hasn't arrived yet
+            gameState = { hand: data.hand, players: [], table: [], chat: [], scores: {} };
+        }
+        renderUI();
+        return;
+    }
+
+    if (data.type === "ROOM_STATE") {
+        // Ensure room channel is initialized for this room
+        if (data.roomId && (!roomChannel || roomChannel.name !== `rooms:${data.roomId}`)) {
+            if (roomChannel) roomChannel.close();
+            roomChannel = new BroadcastChannel(`rooms:${data.roomId}`);
+            roomChannel.onmessage = (event) => {
+                handleRoomEvent(event.data, true);
+            };
+            console.log(`Listening to rooms:${data.roomId}`);
+        }
+
+        const oldHand = gameState ? gameState.hand : [];
+        if (gameState) {
+            const newMessages = data.chat.slice(lastChatLength);
+            newMessages.forEach(msg => {
+                if (msg.type === 'activity') {
+                    const m = msg.message;
+                    if (m.includes(' played ')) sounds.play();
+                    else if (m.includes(' took ')) sounds.take();
+                    else if (m.includes(' discarded ')) sounds.discard();
+                    
+                    tickerQueue.push(m);
+                    processTicker();
+                } else if (msg.name && msg.playerId !== myId) {
+                    if (chatPopup.classList.contains('hidden')) {
+                        showToast(msg.name, msg.message);
+                    }
+                }
+            });
+        }
+        lastChatLength = data.chat.length;
+        gameState = data;
+        if (!gameState.hand) gameState.hand = oldHand;
+        if (!myId) myId = data.myId;
+        
+        const currentHand = new Set(gameState.hand);
+        const currentTable = new Set(data.table.map(t => t.cardId));
+        selectedHandCards = new Set([...selectedHandCards].filter(id => currentHand.has(id)));
+        selectedTableCards = new Set([...selectedTableCards].filter(id => currentTable.has(id)));
+        renderUI();
+        
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('room') !== data.roomId) {
+            url.searchParams.set('room', data.roomId);
+            window.history.pushState({}, '', url);
+        }
+    }
+}
+
 function connect(force = false) {
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) && !force) {
         return;
@@ -247,59 +331,11 @@ function connect(force = false) {
 
         if (data.type === "PLAYER_ID") {
             localStorage.setItem('flip52_player_id', data.playerId);
+            myId = data.playerId;
             return;
         }
 
-        if (data.type === "CELEBRATE") {
-            // Debounce confetti to avoid over-firing if multiple scores are updated at once
-            if (!window._confettiTimeout) {
-                confetti({
-                    particleCount: 150,
-                    spread: 70,
-                    origin: { y: 0.6 },
-                    zIndex: 9999
-                });
-                window._confettiTimeout = setTimeout(() => {
-                    window._confettiTimeout = null;
-                }, 1000);
-            }
-            return;
-        }
-
-        if (data.type === "ROOM_STATE") {
-            if (gameState) {
-                const newMessages = data.chat.slice(lastChatLength);
-                newMessages.forEach(msg => {
-                    if (msg.type === 'activity') {
-                        const m = msg.message;
-                        if (m.includes(' played ')) sounds.play();
-                        else if (m.includes(' took ')) sounds.take();
-                        else if (m.includes(' discarded ')) sounds.discard();
-                        
-                        tickerQueue.push(m);
-                        processTicker();
-                    } else if (msg.name && msg.playerId !== myId) {
-                        if (chatPopup.classList.contains('hidden')) {
-                            showToast(msg.name, msg.message);
-                        }
-                    }
-                });
-            }
-            lastChatLength = data.chat.length;
-            gameState = data;
-            myId = data.myId;
-            const currentHand = new Set(data.hand);
-            const currentTable = new Set(data.table.map(t => t.cardId));
-            selectedHandCards = new Set([...selectedHandCards].filter(id => currentHand.has(id)));
-            selectedTableCards = new Set([...selectedTableCards].filter(id => currentTable.has(id)));
-            renderUI();
-            
-            const url = new URL(window.location.href);
-            if (url.searchParams.get('room') !== data.roomId) {
-                url.searchParams.set('room', data.roomId);
-                window.history.pushState({}, '', url);
-            }
-        }
+        handleRoomEvent(data);
     };
 
     socket.onclose = () => {
@@ -538,6 +574,7 @@ function formatActivity(message) {
 }
 
 function sortCards(cards) {
+    if (!cards) return [];
     return [...cards].sort((a, b) => {
         const rankA = a.slice(0, -1);
         const suitA = a.slice(-1);

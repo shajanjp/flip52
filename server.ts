@@ -22,7 +22,58 @@ interface RoomData {
   scores: Record<string, number>;
 }
 
-const activeConnections = new Map<string, Map<string, WebSocket>>();
+/**
+ * RoomChannel handles pub/sub for each room using Deno's BroadcastChannel.
+ * This allows room-wide event distribution across isolates/workers.
+ * Each user connection becomes a subscriber to the room's channel.
+ */
+class RoomChannel {
+  private static userChannels = new Map<string, BroadcastChannel>();
+
+  static subscribe(roomId: string, playerId: string, ws: WebSocket) {
+    const key = `${roomId}:${playerId}`;
+    // Cleanup existing channel if any
+    this.userChannels.get(key)?.close();
+
+    const bc = new BroadcastChannel(`rooms:${roomId}`);
+    bc.onmessage = (e) => {
+      const msg = e.data;
+      // Filter for public messages or messages targeted to this specific player
+      if (!msg.recipientId || msg.recipientId === playerId) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(msg));
+        }
+      }
+    };
+    this.userChannels.set(key, bc);
+  }
+
+  static unsubscribe(roomId: string, playerId: string) {
+    const key = `${roomId}:${playerId}`;
+    const bc = this.userChannels.get(key);
+    if (bc) {
+      bc.close();
+      this.userChannels.delete(key);
+    }
+  }
+
+  static publish(roomId: string, message: any) {
+    const bc = new BroadcastChannel(`rooms:${roomId}`);
+    bc.postMessage(message);
+    bc.close();
+  }
+
+  static sendTo(roomId: string, playerId: string, message: any) {
+    const bc = new BroadcastChannel(`rooms:${roomId}`);
+    // Inject recipientId for filtering by subscribers
+    bc.postMessage({ ...message, recipientId: playerId });
+    bc.close();
+  }
+
+  static isOnline(roomId: string, playerId: string): boolean {
+    return this.userChannels.has(`${roomId}:${playerId}`);
+  }
+}
 
 function generateRoomId() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -53,10 +104,9 @@ async function broadcast(roomId: string) {
   const room = roomRes.value;
   if (!room) return;
 
-  const roomWsMap = activeConnections.get(roomId);
-  if (!roomWsMap) return;
-
-  const baseState = {
+  // Publish public state to the room channel
+  RoomChannel.publish(roomId, {
+    type: "ROOM_STATE",
     roomId: room.roomId,
     hostId: room.hostId,
     table: room.table,
@@ -67,20 +117,17 @@ async function broadcast(roomId: string) {
       id: p.id,
       name: p.name,
       handCount: p.hand.length,
-      online: roomWsMap ? roomWsMap.has(p.id) : false
+      online: RoomChannel.isOnline(roomId, p.id)
     }))
-  };
+  });
 
+  // Push private hand updates to each player individually
   for (const player of room.players) {
-    const ws = roomWsMap.get(player.id);
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: "ROOM_STATE",
-        ...baseState,
-        hand: player.hand,
-        myId: player.id
-      }));
-    }
+    RoomChannel.sendTo(roomId, player.id, {
+      type: "HAND_UPDATE",
+      hand: player.hand,
+      myId: player.id // Send once to confirm ID
+    });
   }
 }
 
@@ -118,8 +165,7 @@ app.get(
             currentPlayerId = playerId;
             currentRoomId = roomId;
             
-            if (!activeConnections.has(roomId)) activeConnections.set(roomId, new Map());
-            activeConnections.get(roomId)!.set(playerId, ws as unknown as WebSocket);
+            RoomChannel.subscribe(roomId, playerId, ws as unknown as WebSocket);
             
             ws.send(JSON.stringify({ type: "PLAYER_ID", playerId }));
             broadcast(roomId);
@@ -158,8 +204,7 @@ app.get(
             currentPlayerId = playerId;
             currentRoomId = data.roomId;
             
-            if (!activeConnections.has(data.roomId)) activeConnections.set(data.roomId, new Map());
-            activeConnections.get(data.roomId)!.set(playerId, ws as unknown as WebSocket);
+            RoomChannel.subscribe(data.roomId, playerId, ws as unknown as WebSocket);
             
             ws.send(JSON.stringify({ type: "PLAYER_ID", playerId }));
             broadcast(data.roomId);
@@ -208,12 +253,10 @@ app.get(
                 const playerName = room.players[index].name;
                 room.players.splice(index, 1);
                 
-                const roomWsMap = activeConnections.get(currentRoomId);
-                if (roomWsMap) roomWsMap.delete(currentPlayerId);
+                RoomChannel.unsubscribe(currentRoomId, currentPlayerId);
 
                 if (room.players.length === 0) {
                   await kv.delete(["rooms", currentRoomId]);
-                  activeConnections.delete(currentRoomId);
                 } else {
                   if (room.hostId === currentPlayerId) {
                     room.hostId = room.players[0].id;
@@ -256,14 +299,7 @@ app.get(
             broadcast(currentRoomId);
             
             // Broadcast the celebration event
-            const roomWsMap = activeConnections.get(currentRoomId);
-            if (roomWsMap) {
-              for (const ws of roomWsMap.values()) {
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: "CELEBRATE" }));
-                }
-              }
-            }
+            RoomChannel.publish(currentRoomId, { type: "CELEBRATE" });
             break;
           }
 
@@ -339,14 +375,7 @@ app.get(
       },
       onClose: async (event, ws) => {
         if (currentRoomId && currentPlayerId) {
-          const roomWsMap = activeConnections.get(currentRoomId);
-          if (roomWsMap && roomWsMap.get(currentPlayerId) === (ws as unknown as WebSocket)) {
-            roomWsMap.delete(currentPlayerId);
-            
-            if (roomWsMap.size === 0) {
-              activeConnections.delete(currentRoomId);
-            }
-          }
+          RoomChannel.unsubscribe(currentRoomId, currentPlayerId);
           
           const roomRes = await kv.get<RoomData>(["rooms", currentRoomId]);
           const room = roomRes.value;
@@ -375,13 +404,12 @@ app.get("/api/rooms", async (c) => {
   for await (const res of iter) {
     const room = res.value as RoomData;
     const host = room.players.find(p => p.id === room.hostId);
-    const roomWsMap = activeConnections.get(room.roomId);
     rooms.push({
       roomId: room.roomId,
       players: room.players.map(p => ({ 
         name: p.name, 
         id: p.id,
-        online: roomWsMap ? roomWsMap.has(p.id) : false
+        online: RoomChannel.isOnline(room.roomId, p.id)
       })),
       hostName: host ? host.name : "Unknown",
       state: room.state
