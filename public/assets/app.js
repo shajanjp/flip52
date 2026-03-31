@@ -103,6 +103,27 @@ const scoreboardList = document.getElementById('scoreboard-list');
 const btnSaveScores = document.getElementById('btn-save-scores');
 let localScores = {}; // Temporary scores while modal is open
 
+const menuToggle = document.getElementById('menu-toggle');
+const mainMenu = document.getElementById('main-menu');
+
+// Toggle Menu
+menuToggle.onclick = (e) => {
+    e.stopPropagation();
+    mainMenu.classList.toggle('hidden');
+};
+
+// Close menu on click outside
+window.addEventListener('click', () => {
+    mainMenu.classList.add('hidden');
+});
+
+// Close menu when a menu item is clicked
+mainMenu.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        mainMenu.classList.add('hidden');
+    });
+});
+
 function showToast(name, message) {
     const toast = document.createElement('div');
     toast.className = 'bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 p-3 rounded-xl pointer-events-auto transition-all duration-300 transform translate-y-4 opacity-0 scale-95';
@@ -178,9 +199,7 @@ const driverObj = driver({
     showProgress: true,
     steps: [
         { element: '#display-room-id', popover: { title: 'Room ID', description: 'This is your Room ID. Click it to copy the invite link for your friends.', side: "bottom", align: 'start' }},
-        { element: '#btn-tour', popover: { title: 'Tutorial', description: 'You can restart this tour anytime by clicking this button.', side: "bottom", align: 'end' }},
-        { element: '#theme-toggle', popover: { title: 'Theme Toggle', description: 'Switch between Light and Dark mode here.', side: "bottom", align: 'end' }},
-        { element: '#scoreboard-toggle', popover: { title: 'Scoreboard', description: 'Track and update player scores here manually.', side: "bottom", align: 'end' }},
+        { element: '#menu-toggle', popover: { title: 'Menu', description: 'Access the tutorial, scoreboard, and theme toggle from this menu.', side: "bottom", align: 'end' }},
         { element: '#chat-toggle', popover: { title: 'Chat', description: 'Talk to your friends while playing. You will get notifications for new messages.', side: "bottom", align: 'end' }},
         { element: '#btn-start', popover: { title: 'Start Game', description: 'If you are the host, you can start or restart the game here.', side: "bottom", align: 'end' }},
         { element: '#player-list', popover: { title: 'Players', description: 'See who is currently in the room and how many cards they have.', side: "bottom", align: 'start' }},
