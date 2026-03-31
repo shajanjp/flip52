@@ -170,6 +170,44 @@ themeToggle.onclick = () => {
 
 initTheme();
 
+// Tour / Tutorial Logic
+const btnTour = document.getElementById('btn-tour');
+const driver = window.driver.js.driver;
+
+const driverObj = driver({
+    showProgress: true,
+    steps: [
+        { element: '#display-room-id', popover: { title: 'Room ID', description: 'This is your Room ID. Click it to copy the invite link for your friends.', side: "bottom", align: 'start' }},
+        { element: '#btn-tour', popover: { title: 'Tutorial', description: 'You can restart this tour anytime by clicking this button.', side: "bottom", align: 'end' }},
+        { element: '#theme-toggle', popover: { title: 'Theme Toggle', description: 'Switch between Light and Dark mode here.', side: "bottom", align: 'end' }},
+        { element: '#scoreboard-toggle', popover: { title: 'Scoreboard', description: 'Track and update player scores here manually.', side: "bottom", align: 'end' }},
+        { element: '#chat-toggle', popover: { title: 'Chat', description: 'Talk to your friends while playing. You will get notifications for new messages.', side: "bottom", align: 'end' }},
+        { element: '#btn-start', popover: { title: 'Start Game', description: 'If you are the host, you can start or restart the game here.', side: "bottom", align: 'end' }},
+        { element: '#player-list', popover: { title: 'Players', description: 'See who is currently in the room and how many cards they have.', side: "bottom", align: 'start' }},
+        { element: '#table-cards', popover: { title: 'Table Area', description: 'Played cards appear here. Click them to select for taking or discarding.', side: "bottom", align: 'center' }},
+        { element: '#my-hand', popover: { title: 'Your Hand', description: 'These are your cards. Click them to select for playing or discarding.', side: "top", align: 'center' }},
+        { element: '#btn-play', popover: { title: 'Play Cards', description: 'Play selected cards from your hand to the table.', side: "top", align: 'start' }},
+        { element: '#btn-take', popover: { title: 'Take Cards', description: 'Take selected cards from the table to your hand.', side: "top", align: 'center' }},
+        { element: '#btn-discard', popover: { title: 'Discard Cards', description: 'Discard selected cards from your hand or the table. They will be removed from the game.', side: "top", align: 'end' }},
+        { element: '#btn-quit', popover: { title: 'Quit Game', description: 'Leave the room at any time.', side: "bottom", align: 'end' }},
+    ],
+    onDeselected: (element) => {
+        // Mark as seen when they finish or exit
+        localStorage.setItem('flip52_tour_seen', 'true');
+    },
+    onDestroyed: () => {
+        localStorage.setItem('flip52_tour_seen', 'true');
+    }
+});
+
+function startTour() {
+    // If the game hasn't started, some elements like #btn-start might be hidden. 
+    // Driver.js handles missing elements by skipping them usually, but we can be specific.
+    driverObj.drive();
+}
+
+btnTour.onclick = startTour;
+
 const suitSymbols = { 'S': '♠', 'H': '♥', 'D': '♦', 'C': '♣' };
 const suitOrder = { 'S': 0, 'D': 1, 'C': 2, 'H': 3 };
 const rankOrder = { 
@@ -236,6 +274,7 @@ function handleRoomEvent(data, fromBroadcast = false) {
         }
 
         const oldHand = gameState ? gameState.hand : [];
+        const isFirstState = !gameState;
         if (gameState) {
             const newMessages = data.chat.slice(lastChatLength);
             newMessages.forEach(msg => {
@@ -269,6 +308,11 @@ function handleRoomEvent(data, fromBroadcast = false) {
         if (url.searchParams.get('room') !== data.roomId) {
             url.searchParams.set('room', data.roomId);
             window.history.pushState({}, '', url);
+        }
+
+        // Trigger tour if never seen
+        if (isFirstState && !localStorage.getItem('flip52_tour_seen')) {
+            setTimeout(startTour, 1000);
         }
     }
 }
