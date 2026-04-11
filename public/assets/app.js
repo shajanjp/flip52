@@ -126,14 +126,14 @@ mainMenu.querySelectorAll('button').forEach(btn => {
 
 function showToast(name, message) {
     const toast = document.createElement('div');
-    toast.className = 'bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 p-3 rounded-xl pointer-events-auto transition-all duration-300 transform translate-y-4 opacity-0 scale-95';
+    const initials = (name || '??').slice(0, 2).toUpperCase();
+    toast.className = 'bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 p-1.5 rounded-full pointer-events-auto transition-all duration-300 transform translate-y-4 opacity-0 scale-95 flex items-center gap-2.5 pr-4 max-w-xs cursor-pointer';
     toast.innerHTML = `
-        <div class="flex flex-col gap-0.5">
-            <span class="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">New Message</span>
-            <div class="flex flex-col">
-                <span class="font-bold text-gray-900 dark:text-white text-xs shrink-0">${name}:</span>
-                <span class="text-gray-600 dark:text-gray-300 text-sm line-clamp-3 break-words whitespace-pre-wrap">${message}</span>
-            </div>
+        <div class="w-8 h-8 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white text-[11px] font-black shrink-0">
+            ${initials}
+        </div>
+        <div class="text-gray-600 dark:text-gray-300 text-sm line-clamp-2 break-words">
+            ${message}
         </div>
     `;
     
@@ -153,7 +153,7 @@ function showToast(name, message) {
     }, 4000);
 
     toast.onclick = () => {
-        chatToggle.onclick();
+        chatToggle.click();
         toast.remove();
     };
 }
