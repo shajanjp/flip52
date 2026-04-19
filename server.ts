@@ -281,17 +281,27 @@ app.get(
             const player = room.players.find(p => p.id === currentPlayerId);
             if (!player) return;
 
-            const targetPlayer = room.players.find(p => p.id === data.targetPlayerId);
-            if (!targetPlayer) return;
+            const updates = data.updates || (data.targetPlayerId ? [{ targetPlayerId: data.targetPlayerId, newScore: data.newScore }] : []);
+            if (updates.length === 0) return;
 
             if (!room.scores) room.scores = {};
-            room.scores[data.targetPlayerId] = data.newScore;
             
-            room.chat.push({ 
-              name: "System", 
-              message: `${player.name} updated ${targetPlayer.name}'s score to ${data.newScore}`, 
-              type: "activity" 
-            });
+            const summaryParts = [];
+            for (const update of updates) {
+              const targetPlayer = room.players.find(p => p.id === update.targetPlayerId);
+              if (!targetPlayer) continue;
+
+              room.scores[update.targetPlayerId] = update.newScore;
+              summaryParts.push(`${targetPlayer.name}: ${update.newScore}`);
+            }
+
+            if (summaryParts.length > 0) {
+              room.chat.push({ 
+                name: "Scores", 
+                message: summaryParts.join(" • "), 
+                type: "activity" 
+              });
+            }
 
             await kv.set(["rooms", currentRoomId], room);
             

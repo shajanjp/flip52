@@ -127,12 +127,12 @@ mainMenu.querySelectorAll('button').forEach(btn => {
 function showToast(name, message) {
     const toast = document.createElement('div');
     const initials = (name || '??').slice(0, 2).toUpperCase();
-    toast.className = 'bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 p-1.5 rounded-full pointer-events-auto transition-all duration-300 transform translate-y-4 opacity-0 scale-95 flex items-center gap-2.5 pr-4 max-w-xs cursor-pointer';
+    toast.className = 'bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 p-1.5 rounded-2xl pointer-events-auto transition-all duration-300 transform translate-y-4 opacity-0 scale-95 flex items-center gap-2.5 pr-4 max-w-xs cursor-pointer';
     toast.innerHTML = `
         <div class="w-8 h-8 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white text-[11px] font-black shrink-0">
             ${initials}
         </div>
-        <div class="text-gray-600 dark:text-gray-300 text-sm line-clamp-2 break-words">
+        <div class="text-gray-600 dark:text-gray-300 text-[13px] break-words leading-tight">
             ${message}
         </div>
     `;
@@ -488,11 +488,17 @@ window.updateLocalScore = (playerId, delta) => {
 };
 
 btnSaveScores.onclick = () => {
+    const updates = [];
     Object.entries(localScores).forEach(([playerId, newScore]) => {
-        if (newScore !== gameState.scores[playerId]) {
-            sendSocketMessage({ type: "UPDATE_SCORE", targetPlayerId: playerId, newScore });
+        if (newScore !== (gameState.scores[playerId] || 0)) {
+            updates.push({ targetPlayerId: playerId, newScore });
         }
     });
+    
+    if (updates.length > 0) {
+        sendSocketMessage({ type: "UPDATE_SCORE", updates });
+    }
+    
     scoreboardModal.classList.add('hidden');
 };
 
