@@ -1,244 +1,838 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Flip 52</title>
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta
+            name="apple-mobile-web-app-status-bar-style"
+            content="black-translucent"
+        />
+        <title>Flip 52</title>
 
-    <!-- Icons -->
-    <link rel="icon" href="favicon.ico" type="image/x-icon">
-    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+        <!-- Icons -->
+        <link rel="icon" href="favicon.ico" type="image/x-icon" />
+        <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
 
-    <!-- Open Graph / Facebook / WhatsApp -->
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="Flip 52 - Multiplayer Card Table">
-    <meta property="og:description" content="A minimal, real-time card table for playing with friends.">
-    <meta property="og:image" content="assets/og-image.png">
-    <meta property="og:url" content="https://flip52.app">
+        <!-- Open Graph -->
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="Flip 52 - Multiplayer Card Table" />
+        <meta
+            property="og:description"
+            content="A minimal, real-time card table for playing with friends."
+        />
+        <meta property="og:image" content="assets/og-image.png" />
+        <meta property="og:url" content="https://flip52.app" />
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
-    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-        }
-    </script>
-    <style>
-        .card {
-            width: 54px;
-            height: 75px;
-            border-radius: 4px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 1rem;
-            cursor: pointer;
-            user-select: none;
-            transition: transform 0.1s;
-            flex-shrink: 0;
-        }
-        .card:hover {
-            transform: translateY(-5px);
-        }
-        .card.selected {
-            outline: 3px solid #3b82f6;
-            transform: translateY(-5px);
-            z-index: 10;
-        }
-        .suit-S, .suit-C { color: black; }
-        .suit-H, .suit-D { color: red; }
-        
-        .card-tag {
-            background-color: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 4px;
-            padding: 1px 4px;
-            margin: 0 1px;
-            display: inline-block;
-            line-height: 1;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        
-        .table-area {
-            min-height: 150px;
-            background-color: #065f46;
-            border-radius: 8px;
-        }
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"
+        />
+        <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
+        <script>
+            tailwind.config = {
+                darkMode: "class",
+            };
+        </script>
+        <style>
+            /* ── Card Design ── */
+            .card {
+                width: 54px;
+                height: 75px;
+                border-radius: 7px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 3px;
+                cursor: pointer;
+                user-select: none;
+                transition:
+                    transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+                    box-shadow 0.15s ease;
+                flex-shrink: 0;
+                background: linear-gradient(145deg, #ffffff, #f5f5f5);
+                border: 1px solid #e2e8f0;
+                box-shadow:
+                    0 1px 3px rgba(0, 0, 0, 0.06),
+                    0 1px 2px rgba(0, 0, 0, 0.04);
+            }
+            .dark .card {
+                background: linear-gradient(145deg, #2d2d2d, #262626);
+                border-color: #3f3f3f;
+            }
+            .card:hover {
+                transform: translateY(-6px);
+                box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            }
+            .dark .card:hover {
+                box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            }
+            .card.selected {
+                transform: translateY(-8px);
+                box-shadow:
+                    0 0 0 2.5px #3b82f6,
+                    0 8px 24px rgba(59, 130, 246, 0.25);
+                z-index: 10;
+            }
+            .dark .card.selected {
+                box-shadow:
+                    0 0 0 2px #60a5fa,
+                    0 8px 24px rgba(96, 165, 250, 0.2);
+            }
+            .card .card-rank {
+                font-size: 1.05rem;
+                line-height: 1;
+                font-weight: 800;
+                letter-spacing: -0.02em;
+            }
+            .card .card-suit {
+                font-size: 1.15rem;
+                line-height: 1;
+            }
+            .suit-S,
+            .suit-C {
+                color: #1e293b;
+            }
+            .dark .suit-S,
+            .dark .suit-C {
+                color: #cbd5e1;
+            }
+            .suit-H,
+            .suit-D {
+                color: #dc2626;
+            }
+            .dark .suit-H,
+            .dark .suit-D {
+                color: #ef4444;
+            }
 
-        .card-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
-            gap: 8px;
-            justify-items: center;
-        }
+            .card-tag {
+                background: rgba(255, 255, 255, 0.9);
+                backdrop-filter: blur(4px);
+                border: 1px solid #e2e8f0;
+                border-radius: 4px;
+                padding: 1px 5px;
+                margin: 0 1px;
+                display: inline-block;
+                line-height: 1.2;
+                font-size: 0.75rem;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            }
+            .dark .card-tag {
+                background: rgba(30, 30, 30, 0.9);
+                border-color: #3f3f3f;
+            }
 
-        /* Hide scrollbar for Chrome, Safari and Opera */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
+            /* ── Table Area ── */
+            .table-area {
+                min-height: 160px;
+                background: radial-gradient(
+                    ellipse at center,
+                    #065f46 0%,
+                    #064e3b 100%
+                );
+                border-radius: 14px;
+                box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.15);
+            }
+            .dark .table-area {
+                background: radial-gradient(
+                    ellipse at center,
+                    #064e3b 0%,
+                    #022c22 100%
+                );
+            }
 
-        /* Hide scrollbar for IE, Edge and Firefox */
-        .no-scrollbar {
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
-        }
-    </style>
-</head>
-<body class="bg-gray-100 dark:bg-gray-950 flex flex-col min-h-screen transition-colors duration-300">
+            .card-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+                gap: 10px;
+                justify-items: center;
+            }
 
-    <!-- Login/Join Overlay -->
-    <div id="login-overlay" class="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-md flex items-center justify-center z-[100]">
-        <div class="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-2xl w-80 border border-gray-100 dark:border-gray-800">
-            <h2 class="text-2xl font-black mb-6 text-gray-800 dark:text-white text-center">Flip 52</h2>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Your Name</label>
-                    <input id="player-name" type="text" placeholder="Enter name..." class="w-full border border-gray-100 dark:border-gray-800 dark:bg-gray-800 dark:text-white p-3 rounded-xl outline-none focus:border-blue-500 transition-colors">
+            /* ── Scrollbar ── */
+            .no-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+            .no-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+
+            /* Thin custom scrollbar for chats */
+            .thin-scrollbar::-webkit-scrollbar {
+                width: 4px;
+            }
+            .thin-scrollbar::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .thin-scrollbar::-webkit-scrollbar-thumb {
+                background: #d1d5db;
+                border-radius: 99px;
+            }
+            .dark .thin-scrollbar::-webkit-scrollbar-thumb {
+                background: #4b5563;
+            }
+
+            /* ── System Ticker ── */
+            #system-ticker {
+                transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            }
+
+            /* ── Toast ── */
+            .toast-enter {
+                transform: translateY(16px) scale(0.95);
+                opacity: 0;
+            }
+            .toast-enter-active {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+                transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+            }
+            .toast-exit-active {
+                transform: translateY(-8px) scale(0.95);
+                opacity: 0;
+                transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+            }
+
+            /* ── Animations ── */
+            @keyframes fadeUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(12px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            .animate-fade-up {
+                animation: fadeUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            }
+            @keyframes pulse-dot {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.4;
+                }
+            }
+            .pulse-dot {
+                animation: pulse-dot 1.5s ease-in-out infinite;
+            }
+
+            /* ── Player chips ── */
+            .player-chip {
+                transition: all 0.2s ease;
+            }
+            .player-chip:hover {
+                transform: translateY(-1px);
+            }
+
+            /* ── Misc ── */
+            .btn-action {
+                transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            .btn-action:active:not(:disabled) {
+                transform: scale(0.95);
+            }
+            .btn-action:disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+                transform: none;
+            }
+
+            .card-wrapper {
+                animation: none;
+            }
+        </style>
+    </head>
+    <body
+        class="bg-gray-50 dark:bg-gray-950 flex flex-col min-h-screen transition-colors duration-300 antialiased"
+    >
+        <!-- ─── Login Overlay ─── -->
+        <div
+            id="login-overlay"
+            class="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-[100] p-4"
+        >
+            <div
+                class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-100 dark:border-gray-800 overflow-hidden animate-fade-up"
+            >
+                <!-- Brand header -->
+                <div class="pt-8 pb-4 px-8 text-center">
+                    <div
+                        class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 mb-4 shadow-lg shadow-blue-200 dark:shadow-none"
+                    >
+                        <span
+                            class="text-white text-2xl font-black tracking-tight"
+                            >♠</span
+                        >
+                    </div>
+                    <h1
+                        class="text-2xl font-black text-gray-800 dark:text-white"
+                    >
+                        Flip 52
+                    </h1>
+                    <p
+                        class="text-sm text-gray-400 dark:text-gray-500 mt-1 font-medium"
+                    >
+                        Real-time multiplayer card table
+                    </p>
                 </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Room ID (Optional)</label>
-                    <input id="room-id" type="text" placeholder="ABCD" class="w-full border border-gray-100 dark:border-gray-800 dark:bg-gray-800 dark:text-white p-3 rounded-xl outline-none focus:border-blue-500 transition-colors uppercase">
+
+                <div class="px-8 pb-8 space-y-4">
+                    <div>
+                        <label
+                            class="block text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 ml-0.5"
+                            >Your Name</label
+                        >
+                        <input
+                            id="player-name"
+                            type="text"
+                            placeholder="Enter your name..."
+                            class="w-full border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white px-4 py-3 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label
+                            class="block text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 ml-0.5"
+                            >Room Code
+                            <span class="font-normal normal-case opacity-60"
+                                >(optional)</span
+                            ></label
+                        >
+                        <input
+                            id="room-id"
+                            type="text"
+                            placeholder="e.g. ABCD"
+                            maxlength="6"
+                            class="w-full border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white px-4 py-3 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all text-sm uppercase tracking-wider"
+                        />
+                    </div>
+                    <button
+                        id="btn-join"
+                        class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-200/50 dark:shadow-none transition-all active:scale-[0.98] text-sm"
+                    >
+                        Join Game
+                    </button>
                 </div>
-                <button id="btn-join" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl font-bold shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95">
-                    Join Game
-                </button>
             </div>
         </div>
-    </div>
 
-    <!-- Room Header -->
-    <header class="bg-white dark:bg-gray-900 shadow sticky top-0 z-30 transition-colors duration-300">
-        <div class="px-4 py-2 flex justify-between items-center border-b border-gray-50 dark:border-gray-800">
-            <div class="flex items-center gap-4">
-                <span class="font-black text-lg tracking-tighter text-blue-600">Flip 52</span>
-                <div class="flex items-center gap-1.5 border-l pl-3 border-gray-100 dark:border-gray-800">
-                    <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Room</span>
-                    <span id="display-room-id" class="font-mono bg-gray-50 dark:bg-gray-800 px-2 py-0.5 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-xs border border-gray-100 dark:border-gray-700 dark:text-gray-300" title="Click to copy link">------</span>
+        <!-- ─── Header ─── -->
+        <header
+            class="bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg shadow-sm border-b border-gray-100 dark:border-gray-800 sticky top-0 z-30 transition-colors duration-300"
+        >
+            <div class="px-4 py-2.5 flex items-center justify-between">
+                <!-- Left: Brand + Room -->
+                <div class="flex items-center gap-3 min-w-0">
+                    <span
+                        class="font-black text-lg tracking-tight text-blue-600 shrink-0"
+                        >Flip 52</span
+                    >
+                    <div class="flex items-center gap-1.5 text-xs min-w-0">
+                        <span
+                            class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest shrink-0"
+                            >Room</span
+                        >
+                        <span
+                            id="display-room-id"
+                            class="font-mono font-semibold bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-600 dark:text-gray-300 truncate max-w-[100px]"
+                            title="Click to copy invite link"
+                            >------</span
+                        >
+                    </div>
                 </div>
-            </div>
-            <div class="flex items-center gap-2 relative">
-                <button id="chat-toggle" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-all active:scale-95 relative" title="Open Chat">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
-                    <span id="chat-badge" class="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white dark:border-gray-900 hidden"></span>
-                </button>
-                <button id="btn-quit" class="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg shadow-sm active:scale-95 transition-all" title="Quit Game">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                </button>
-                <button id="btn-start" class="hidden bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg shadow-sm active:scale-95 transition-all" title="Start Game">
-                    <svg id="start-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                    <svg id="restart-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                </button>
 
-                <div class="h-6 w-px bg-gray-100 dark:bg-gray-800 mx-1"></div>
-
-                <div class="relative">
-                    <button id="menu-toggle" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-all active:scale-95" title="Menu">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                <!-- Right: Actions -->
+                <div class="flex items-center gap-1">
+                    <button
+                        id="chat-toggle"
+                        class="p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all relative active:scale-95"
+                        title="Chat"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z" />
+                        </svg>
+                        <span
+                            id="chat-badge"
+                            class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white dark:border-gray-900 hidden"
+                        ></span>
                     </button>
 
-                    <!-- Burger Menu Dropdown -->
-                    <div id="main-menu" class="hidden absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 z-50 overflow-hidden py-1">
-                        <button id="btn-tour" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" title="Tutorial">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                            <span class="font-medium">Tutorial</span>
+                    <button
+                        id="btn-start"
+                        class="hidden p-2 rounded-xl text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all active:scale-95"
+                        title="Start Game"
+                    >
+                        <svg
+                            id="start-icon"
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                        </svg>
+                        <svg
+                            id="restart-icon"
+                            class="hidden"
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M23 4v6h-6" />
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                        </svg>
+                    </button>
+
+                    <button
+                        id="btn-quit"
+                        class="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all active:scale-95"
+                        title="Leave Room"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>
+                    </button>
+
+                    <div
+                        class="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1"
+                    ></div>
+
+                    <!-- Menu -->
+                    <div class="relative">
+                        <button
+                            id="menu-toggle"
+                            class="p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all active:scale-95"
+                            title="More"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <circle cx="12" cy="5" r="1" />
+                                <circle cx="12" cy="12" r="1" />
+                                <circle cx="12" cy="19" r="1" />
+                            </svg>
                         </button>
-                        <button id="theme-toggle" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" title="Toggle Dark Mode">
-                            <div class="relative w-[18px] h-[18px] flex items-center justify-center">
-                                <svg id="sun-icon" class="hidden w-full h-full" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-                                <svg id="moon-icon" class="w-full h-full" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-                            </div>
-                            <span class="font-medium">Toggle Theme</span>
+
+                        <div
+                            id="main-menu"
+                            class="hidden absolute top-full right-0 mt-2 w-44 bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-100 dark:border-gray-800 z-50 overflow-hidden py-1.5 origin-top-right"
+                        >
+                            <button
+                                id="btn-tour"
+                                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="text-gray-400"
+                                >
+                                    <circle cx="12" cy="12" r="10" />
+                                    <path
+                                        d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"
+                                    />
+                                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                                </svg>
+                                <span>Tutorial</span>
+                            </button>
+                            <button
+                                id="theme-toggle"
+                                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                <svg
+                                    id="sun-icon"
+                                    class="hidden text-gray-400"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <circle cx="12" cy="12" r="4" />
+                                    <path d="M12 2v2" />
+                                    <path d="M12 20v2" />
+                                    <path d="m4.93 4.93 1.41 1.41" />
+                                    <path d="m17.66 17.66 1.41 1.41" />
+                                    <path d="M2 12h2" />
+                                    <path d="M20 12h2" />
+                                    <path d="m6.34 17.66-1.41 1.41" />
+                                    <path d="m19.07 4.93-1.41 1.41" />
+                                </svg>
+                                <svg
+                                    id="moon-icon"
+                                    class="text-gray-400"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <path
+                                        d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"
+                                    />
+                                </svg>
+                                <span id="theme-label">Dark Mode</span>
+                            </button>
+                            <button
+                                id="scoreboard-toggle"
+                                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="text-gray-400"
+                                >
+                                    <path
+                                        d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"
+                                    />
+                                    <rect
+                                        width="20"
+                                        height="14"
+                                        x="2"
+                                        y="6"
+                                        rx="2"
+                                    />
+                                </svg>
+                                <span>Scoreboard</span>
+                            </button>
+                            <button
+                                id="btn-quit-menu"
+                                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors md:hidden"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <path
+                                        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+                                    />
+                                    <polyline points="16 17 21 12 16 7" />
+                                    <line x1="21" y1="12" x2="9" y2="12" />
+                                </svg>
+                                <span>Leave Room</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Player List -->
+            <div
+                id="player-list"
+                class="flex gap-2 overflow-x-auto whitespace-nowrap px-4 pb-2.5 no-scrollbar items-center min-h-[40px] transition-all duration-300"
+            >
+                <!-- Players rendered here -->
+            </div>
+        </header>
+
+        <!-- ─── Table Area ─── -->
+        <main class="p-3 flex-1 flex flex-col">
+            <div class="table-area p-4 card-grid flex-1" id="table-cards">
+                <!-- Table cards rendered here -->
+            </div>
+        </main>
+
+        <!-- ─── System Message Ticker ─── -->
+        <div
+            class="bg-gray-50 dark:bg-gray-900 border-y border-gray-100 dark:border-gray-800 h-8 overflow-hidden relative"
+        >
+            <div
+                id="system-ticker"
+                class="absolute inset-0 flex items-center justify-center px-4 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] translate-y-full"
+            >
+                <span
+                    class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 text-center truncate"
+                ></span>
+            </div>
+        </div>
+
+        <!-- ─── Toast Container ─── -->
+        <div
+            id="toast-container"
+            class="fixed top-20 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 pointer-events-none w-full max-w-xs px-4"
+        ></div>
+
+        <!-- ─── My Hand ─── -->
+        <section
+            class="bg-gray-100 dark:bg-gray-950 px-3 py-3 border-t border-gray-200 dark:border-gray-800"
+        >
+            <div id="my-hand" class="card-grid">
+                <!-- Hand cards rendered here -->
+            </div>
+        </section>
+
+        <!-- ─── Action Bar ─── -->
+        <nav
+            class="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-3 py-3 flex gap-2 sticky bottom-0 z-20 safe-area-bottom"
+        >
+            <button
+                id="btn-play"
+                class="btn-action flex-1 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white py-2.5 rounded-xl font-bold text-sm shadow-sm disabled:shadow-none flex items-center justify-center gap-2"
+                disabled
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+                <span>Play</span>
+                <span
+                    id="play-count"
+                    class="opacity-70 text-xs font-semibold"
+                ></span>
+            </button>
+            <button
+                id="btn-take"
+                class="btn-action flex-1 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white py-2.5 rounded-xl font-bold text-sm shadow-sm disabled:shadow-none flex items-center justify-center gap-2"
+                disabled
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M12 5v14" />
+                    <path d="m19 12-7 7-7-7" />
+                </svg>
+                <span>Take</span>
+                <span
+                    id="take-count"
+                    class="opacity-70 text-xs font-semibold"
+                ></span>
+            </button>
+            <button
+                id="btn-discard"
+                class="btn-action flex-1 bg-gray-400 hover:bg-gray-500 active:bg-gray-600 text-white py-2.5 rounded-xl font-bold text-sm shadow-sm disabled:shadow-none flex items-center justify-center gap-2"
+                disabled
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M3 6h18" />
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                </svg>
+                <span>Discard</span>
+                <span
+                    id="discard-count"
+                    class="opacity-70 text-xs font-semibold"
+                ></span>
+            </button>
+        </nav>
+
+        <!-- ─── Modals & Chat ─── -->
+        <div id="chat-container" class="fixed inset-0 z-50 pointer-events-none">
+            <!-- Scoreboard Modal -->
+            <div
+                id="scoreboard-modal"
+                class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 hidden pointer-events-auto"
+            >
+                <div
+                    class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-100 dark:border-gray-800 overflow-hidden animate-fade-up"
+                >
+                    <div
+                        class="flex items-center justify-between px-5 pt-5 pb-3"
+                    >
+                        <h3
+                            class="font-black text-gray-800 dark:text-white text-lg"
+                        >
+                            Scoreboard
+                        </h3>
+                        <button
+                            id="scoreboard-close"
+                            class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
                         </button>
-                        <button id="scoreboard-toggle" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" title="Scoreboard">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg>
-                            <span class="font-medium">Scoreboard</span>
+                    </div>
+                    <div
+                        id="scoreboard-list"
+                        class="px-5 pb-2 space-y-2 max-h-[55vh] overflow-y-auto thin-scrollbar"
+                    >
+                        <!-- Player scores rendered here -->
+                    </div>
+                    <div
+                        class="px-5 pb-5 pt-3 flex justify-end gap-2 border-t border-gray-100 dark:border-gray-800 mt-2"
+                    >
+                        <button
+                            id="btn-save-scores"
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-[0.98]"
+                        >
+                            Save Changes
                         </button>
                     </div>
                 </div>
             </div>
-        </div>
-        <div id="player-list" class="flex gap-2 overflow-x-auto whitespace-nowrap px-4 py-2 no-scrollbar bg-gray-50/50 dark:bg-gray-900/50 items-center min-h-[44px] transition-all duration-300 ease-in-out">
-            <!-- Players as chips here -->
-        </div>
-    </header>
 
-    <!-- Table Area -->
-    <main class="p-4 flex-1">
-        <div class="table-area p-4 card-grid dark:bg-emerald-950/50" id="table-cards">
-            <!-- Table cards here -->
-        </div>
-    </main>
-
-    <!-- System Message Ticker -->
-    <div class="bg-gray-100 dark:bg-gray-900 border-y border-gray-200 dark:border-gray-800 h-8 overflow-hidden relative">
-        <div id="system-ticker" class="absolute inset-0 flex items-center justify-center px-4 transition-transform duration-500 ease-in-out translate-y-full">
-            <span class="text-xs font-bold text-gray-500 dark:text-gray-400 italic text-center truncate"></span>
-        </div>
-    </div>
-
-    <!-- Toast Container -->
-    <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 pointer-events-none w-full max-w-[320px] px-4"></div>
-
-    <!-- My Hand -->
-    <section class="bg-gray-200 dark:bg-gray-950 p-4 border-t border-gray-300 dark:border-gray-800">
-        <div id="my-hand" class="card-grid">
-            <!-- My cards here -->
-        </div>
-    </section>
-
-    <!-- Action Bar -->
-    <nav class="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 p-4 flex justify-around gap-2 sticky bottom-0 z-20">
-        <button id="btn-play" class="flex-1 bg-blue-500 text-white py-2 rounded font-bold disabled:opacity-50">Play</button>
-        <button id="btn-take" class="flex-1 bg-yellow-500 text-white py-2 rounded font-bold disabled:opacity-50">Take</button>
-        <button id="btn-discard" class="flex-1 bg-red-500 text-white py-2 rounded font-bold disabled:opacity-50">Discard</button>
-    </nav>
-
-    <!-- Chat Components -->
-    <div id="chat-container" class="fixed inset-0 z-50 pointer-events-none">
-        <!-- Scoreboard Modal -->
-        <div id="scoreboard-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden pointer-events-auto">
-            <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-                <div class="bg-blue-600 p-4 flex justify-between items-center">
-                    <h3 class="text-white font-black uppercase tracking-widest text-sm">Scoreboard</h3>
-                    <button id="scoreboard-close" class="text-white hover:text-blue-100 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <!-- Chat Popup -->
+            <div
+                id="chat-popup"
+                class="fixed inset-0 md:absolute md:inset-auto md:top-16 md:right-4 md:w-80 md:max-h-[28rem] bg-white dark:bg-gray-900 md:rounded-xl shadow-2xl flex flex-col hidden border border-gray-200 dark:border-gray-700 pointer-events-auto overflow-hidden md:animate-fade-up"
+            >
+                <div
+                    class="flex items-center justify-between px-4 pt-4 pb-2 shrink-0"
+                >
+                    <span class="font-bold text-gray-800 dark:text-white"
+                        >Chat</span
+                    >
+                    <button
+                        id="chat-close"
+                        class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
                     </button>
                 </div>
-                <div id="scoreboard-list" class="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
-                    <!-- Player scores here -->
+                <div
+                    id="chat-messages"
+                    class="flex-1 overflow-y-auto px-4 py-2 text-sm space-y-1 thin-scrollbar bg-gray-50/50 dark:bg-gray-800/30"
+                >
+                    <!-- Chat messages rendered here -->
                 </div>
-                <div class="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex justify-end">
-                    <button id="btn-save-scores" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-200 dark:shadow-none">
-                        Save Changes
+                <div
+                    class="flex items-center gap-2 px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50"
+                >
+                    <input
+                        id="chat-input"
+                        type="text"
+                        placeholder="Type a message..."
+                        class="flex-1 min-w-0 px-4 py-2.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all text-sm"
+                    />
+                    <button
+                        id="btn-send"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-[0.98] shrink-0"
+                    >
+                        Send
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Chat Popup -->
-        <div id="chat-popup" class="fixed inset-0 md:absolute md:inset-auto md:top-14 md:right-4 md:w-80 md:h-96 bg-white dark:bg-gray-800 md:rounded-lg shadow-2xl flex flex-col hidden border border-gray-200 dark:border-gray-700 pointer-events-auto overflow-hidden">
-            <div class="bg-blue-600 text-white p-3 md:rounded-t-lg flex justify-between items-center shrink-0">
-                <span class="font-bold">Chat</span>
-                <button id="chat-close" class="hover:text-gray-200 p-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
-            </div>
-            <div id="chat-messages" class="flex-1 overflow-y-auto p-3 text-sm bg-white dark:bg-gray-900">
-                <!-- Chat messages here -->
-            </div>
-            <div class="flex border-t border-gray-100 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-800 md:rounded-b-lg pb-safe">
-                <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 min-w-0 p-3 border dark:border-gray-700 dark:bg-gray-900 dark:text-white rounded-l-xl outline-none focus:border-blue-500 transition-colors text-base">
-                <button id="btn-send" class="bg-blue-600 text-white px-6 py-3 rounded-r-xl font-bold hover:bg-blue-700 transition-colors shrink-0">Send</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-    <script src="assets/app.js"></script>
-</body>
+        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+        <script src="assets/app.js"></script>
+    </body>
 </html>

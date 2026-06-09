@@ -10,6 +10,7 @@ let selectedHandCards = new Set();
 let selectedTableCards = new Set();
 let gameState = null;
 let lastChatLength = 0;
+let prevTableSnapshot = '';
 
 // Sound Effects
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -82,8 +83,8 @@ function processTicker() {
                 isTickerBusy = false;
                 processTicker();
             }, 50);
-        }, 500); // Out duration
-    }, 2500); // Visible duration
+        }, 500);
+    }, 2500);
 }
 
 const chatMessages = document.getElementById('chat-messages');
@@ -101,7 +102,7 @@ const scoreboardModal = document.getElementById('scoreboard-modal');
 const scoreboardClose = document.getElementById('scoreboard-close');
 const scoreboardList = document.getElementById('scoreboard-list');
 const btnSaveScores = document.getElementById('btn-save-scores');
-let localScores = {}; // Temporary scores while modal is open
+let localScores = {};
 
 const menuToggle = document.getElementById('menu-toggle');
 const mainMenu = document.getElementById('main-menu');
@@ -124,15 +125,30 @@ mainMenu.querySelectorAll('button').forEach(btn => {
     });
 });
 
+// Quit from mobile menu
+document.getElementById('btn-quit-menu')?.addEventListener('click', () => {
+    if (!confirm("Are you sure you want to quit this room?")) return;
+    sendSocketMessage({ type: "LEAVE_ROOM" });
+    localStorage.removeItem('flip52_player_id');
+    localStorage.removeItem('flip52_player_name');
+    gameState = null;
+    myId = null;
+    lastChatLength = 0;
+    loginOverlay.classList.remove('hidden');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('room');
+    window.history.pushState({}, '', url);
+});
+
 function showToast(name, message) {
     const toast = document.createElement('div');
     const initials = (name || '??').slice(0, 2).toUpperCase();
-    toast.className = 'bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 p-1.5 rounded-2xl pointer-events-auto transition-all duration-300 transform translate-y-4 opacity-0 scale-95 flex items-center gap-2.5 pr-4 max-w-xs cursor-pointer';
+    toast.className = 'bg-white dark:bg-gray-800 shadow-lg border border-gray-100 dark:border-gray-700 p-2 rounded-2xl pointer-events-auto flex items-center gap-2.5 pr-4 max-w-xs cursor-pointer toast-enter';
     toast.innerHTML = `
-        <div class="w-8 h-8 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white text-[11px] font-black shrink-0">
+        <div class="w-8 h-8 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white text-[11px] font-black shrink-0 shadow-sm">
             ${initials}
         </div>
-        <div class="text-gray-600 dark:text-gray-300 text-[13px] break-words leading-tight">
+        <div class="text-gray-600 dark:text-gray-300 text-[13px] break-words leading-tight font-medium">
             ${message}
         </div>
     `;
@@ -141,14 +157,14 @@ function showToast(name, message) {
     
     // Animate In
     requestAnimationFrame(() => {
-        toast.classList.remove('translate-y-4', 'opacity-0', 'scale-95');
-        toast.classList.add('translate-y-0', 'opacity-100', 'scale-100');
+        toast.classList.remove('toast-enter');
+        toast.classList.add('toast-enter-active');
     });
 
     // Animate Out
     setTimeout(() => {
-        toast.classList.remove('translate-y-0', 'opacity-100', 'scale-100');
-        toast.classList.add('-translate-y-4', 'opacity-0', 'scale-95');
+        toast.classList.remove('toast-enter-active');
+        toast.classList.add('toast-exit-active');
         setTimeout(() => toast.remove(), 300);
     }, 4000);
 
@@ -162,16 +178,20 @@ function showToast(name, message) {
 const themeToggle = document.getElementById('theme-toggle');
 const sunIcon = document.getElementById('sun-icon');
 const moonIcon = document.getElementById('moon-icon');
+const themeLabel = document.getElementById('theme-label');
 
 function initTheme() {
-    if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    const isDark = localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (isDark) {
         document.documentElement.classList.add('dark');
         sunIcon.classList.remove('hidden');
         moonIcon.classList.add('hidden');
+        if (themeLabel) themeLabel.textContent = 'Light Mode';
     } else {
         document.documentElement.classList.remove('dark');
         sunIcon.classList.add('hidden');
         moonIcon.classList.remove('hidden');
+        if (themeLabel) themeLabel.textContent = 'Dark Mode';
     }
 }
 
@@ -181,11 +201,13 @@ themeToggle.onclick = () => {
         localStorage.setItem('theme', 'light');
         sunIcon.classList.add('hidden');
         moonIcon.classList.remove('hidden');
+        if (themeLabel) themeLabel.textContent = 'Dark Mode';
     } else {
         document.documentElement.classList.add('dark');
         localStorage.setItem('theme', 'dark');
         sunIcon.classList.remove('hidden');
         moonIcon.classList.add('hidden');
+        if (themeLabel) themeLabel.textContent = 'Light Mode';
     }
 };
 
@@ -208,10 +230,9 @@ const driverObj = driver({
         { element: '#btn-play', popover: { title: 'Play Cards', description: 'Play selected cards from your hand to the table.', side: "top", align: 'start' }},
         { element: '#btn-take', popover: { title: 'Take Cards', description: 'Take selected cards from the table to your hand.', side: "top", align: 'center' }},
         { element: '#btn-discard', popover: { title: 'Discard Cards', description: 'Discard selected cards from your hand or the table. They will be removed from the game.', side: "top", align: 'end' }},
-        { element: '#btn-quit', popover: { title: 'Quit Game', description: 'Leave the room at any time.', side: "bottom", align: 'end' }},
+        { element: '#btn-quit', popover: { title: 'Leave Room', description: 'Leave the room at any time.', side: "bottom", align: 'end' }},
     ],
     onDeselected: (element) => {
-        // Mark as seen when they finish or exit
         localStorage.setItem('flip52_tour_seen', 'true');
     },
     onDestroyed: () => {
@@ -220,8 +241,6 @@ const driverObj = driver({
 });
 
 function startTour() {
-    // If the game hasn't started, some elements like #btn-start might be hidden. 
-    // Driver.js handles missing elements by skipping them usually, but we can be specific.
     driverObj.drive();
 }
 
@@ -249,13 +268,11 @@ function sendSocketMessage(msg) {
 let roomChannel = null;
 
 function handleRoomEvent(data, fromBroadcast = false) {
-    // Re-broadcast to other tabs if this came from WebSocket
     if (!fromBroadcast && roomChannel && (data.type === "ROOM_STATE" || data.type === "HAND_UPDATE" || data.type === "CELEBRATE")) {
         roomChannel.postMessage(data);
     }
 
     if (data.type === "CELEBRATE") {
-        // Debounce confetti to avoid over-firing if multiple scores are updated at once
         if (!window._confettiTimeout) {
             confetti({
                 particleCount: 150,
@@ -272,24 +289,24 @@ function handleRoomEvent(data, fromBroadcast = false) {
 
     if (data.type === "HAND_UPDATE") {
         if (gameState) {
-            gameState.hand = data.hand;
+            if (JSON.stringify(gameState.hand) !== JSON.stringify(data.hand)) {
+                gameState.hand = data.hand;
+                renderHand();
+            }
         } else {
-            // Partial state if ROOM_STATE hasn't arrived yet
             gameState = { hand: data.hand, players: [], table: [], chat: [], scores: {} };
+            renderUI();
         }
-        renderUI();
         return;
     }
 
     if (data.type === "ROOM_STATE") {
-        // Ensure room channel is initialized for this room
         if (data.roomId && (!roomChannel || roomChannel.name !== `rooms:${data.roomId}`)) {
             if (roomChannel) roomChannel.close();
             roomChannel = new BroadcastChannel(`rooms:${data.roomId}`);
             roomChannel.onmessage = (event) => {
                 handleRoomEvent(event.data, true);
             };
-            console.log(`Listening to rooms:${data.roomId}`);
         }
 
         const oldHand = gameState ? gameState.hand : [];
@@ -321,7 +338,24 @@ function handleRoomEvent(data, fromBroadcast = false) {
         const currentTable = new Set(data.table.map(t => t.cardId));
         selectedHandCards = new Set([...selectedHandCards].filter(id => currentHand.has(id)));
         selectedTableCards = new Set([...selectedTableCards].filter(id => currentTable.has(id)));
-        renderUI();
+
+        const tableSnapshot = JSON.stringify(gameState.table);
+        const tableChanged = tableSnapshot !== prevTableSnapshot;
+        prevTableSnapshot = tableSnapshot;
+
+        if (isFirstState) {
+            renderUI();
+        } else if (tableChanged) {
+            renderRoomId();
+            renderTable();
+            renderPlayerList();
+            renderChat();
+            updateActionBar();
+        } else {
+            renderPlayerList();
+            renderChat();
+            updateActionBar();
+        }
         
         const url = new URL(window.location.href);
         if (url.searchParams.get('room') !== data.roomId) {
@@ -329,7 +363,6 @@ function handleRoomEvent(data, fromBroadcast = false) {
             window.history.pushState({}, '', url);
         }
 
-        // Trigger tour if never seen
         if (isFirstState && !localStorage.getItem('flip52_tour_seen')) {
             setTimeout(startTour, 1000);
         }
@@ -342,7 +375,6 @@ function connect(force = false) {
     }
 
     if (socket) {
-        console.log("Closing existing socket...");
         socket.onopen = null;
         socket.onmessage = null;
         socket.onclose = null;
@@ -350,29 +382,23 @@ function connect(force = false) {
         socket.close();
     }
 
-    console.log("Connecting to WebSocket:", wsUrl);
     socket = new WebSocket(wsUrl);
 
-    // Safari iOS fallback: if it stays in CONNECTING too long, something is wrong
     const connectionTimeout = setTimeout(() => {
         if (socket && socket.readyState === WebSocket.CONNECTING) {
-            console.warn("Connection timeout, retrying...");
             connect(true);
         }
     }, 5000);
 
     socket.onopen = () => {
         clearTimeout(connectionTimeout);
-        console.log("WebSocket connected");
         reconnectDelay = 1000;
 
-        // Process queued messages
         while (messageQueue.length > 0) {
             const msg = messageQueue.shift();
             socket.send(JSON.stringify(msg));
         }
 
-        // Auto-rejoin if we were in a room
         const roomId = new URLSearchParams(window.location.search).get('room');
         const playerId = localStorage.getItem('flip52_player_id');
         const name = localStorage.getItem('flip52_player_name');
@@ -402,7 +428,6 @@ function connect(force = false) {
     };
 
     socket.onclose = () => {
-        console.log("WebSocket disconnected, retrying...");
         clearTimeout(reconnectTimer);
         reconnectTimer = setTimeout(connect, reconnectDelay);
         reconnectDelay = Math.min(reconnectDelay * 2, 30000);
@@ -410,28 +435,22 @@ function connect(force = false) {
 
     socket.onerror = (err) => {
         console.error("WebSocket error:", err);
-        console.log("Connection Error to: " + wsUrl + "\n\nPlease check if the server is running and accessible. If using a local IP, ensure your phone is on the same Wi-Fi.");
     };
 }
 
-// Initial Connection with small delay for mobile Safari
 setTimeout(connect, 100);
 
-// Reconnect when page becomes visible again (helpful for mobile Safari)
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
         if (!socket || socket.readyState !== WebSocket.OPEN) {
-            console.log("Visibility changed to visible, reconnecting...");
             connect();
         }
     }
 });
 
-// Restore name from localStorage
 const savedName = localStorage.getItem('flip52_player_name');
 if (savedName) playerNameInput.value = savedName;
 
-// Check URL for Room ID
 const urlParams = new URLSearchParams(window.location.search);
 const roomParam = urlParams.get('room');
 if (roomParam) {
@@ -467,15 +486,15 @@ function renderScoreboard() {
     scoreboardList.innerHTML = gameState.players.map(p => {
         const score = localScores[p.id] || 0;
         return `
-            <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
-                <div class="flex flex-col">
-                    <span class="font-bold text-gray-800 dark:text-gray-200">${p.name} ${p.id === myId ? '(You)' : ''}</span>
-                    <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Current: ${gameState.scores[p.id] || 0}</span>
+            <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                <div class="flex flex-col min-w-0">
+                    <span class="font-bold text-sm text-gray-800 dark:text-gray-200 truncate">${p.name} ${p.id === myId ? '<span class="text-blue-500 text-xs font-semibold">(You)</span>' : ''}</span>
+                    <span class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Current: ${gameState.scores[p.id] || 0}</span>
                 </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="updateLocalScore('${p.id}', -1)" class="w-8 h-8 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 active:scale-90 transition-all shadow-sm">-</button>
-                    <span class="font-black text-lg w-8 text-center text-blue-600 dark:text-blue-400">${score}</span>
-                    <button onclick="updateLocalScore('${p.id}', 1)" class="w-8 h-8 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 active:scale-90 transition-all shadow-sm">+</button>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="updateLocalScore('${p.id}', -1)" class="w-7 h-7 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 active:scale-90 transition-all font-bold text-sm">−</button>
+                    <span class="font-black text-base w-7 text-center text-blue-600 dark:text-blue-400 tabular-nums">${score}</span>
+                    <button onclick="updateLocalScore('${p.id}', 1)" class="w-7 h-7 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 active:scale-90 transition-all font-bold text-sm">+</button>
                 </div>
             </div>
         `;
@@ -502,7 +521,6 @@ btnSaveScores.onclick = () => {
     scoreboardModal.classList.add('hidden');
 };
 
-// Helper to copy text to clipboard with fallback
 async function copyToClipboard(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
         try {
@@ -542,10 +560,10 @@ displayRoomId.onclick = async () => {
     
     if (success) {
         displayRoomId.innerText = "COPIED!";
-        displayRoomId.classList.add('bg-green-200');
+        displayRoomId.classList.add('bg-green-100', 'text-green-700', 'dark:bg-green-900/30', 'dark:text-green-400');
         setTimeout(() => {
             displayRoomId.innerText = roomId;
-            displayRoomId.classList.remove('bg-green-200');
+            displayRoomId.classList.remove('bg-green-100', 'text-green-700', 'dark:bg-green-900/30', 'dark:text-green-400');
         }, 1000);
     }
 };
@@ -555,33 +573,30 @@ btnJoin.onclick = () => {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const name = playerNameInput.value.trim();
     const roomId = roomIdInput.value.trim().toUpperCase();
-    if (!name) return alert("Please enter your name");
+    if (!name) {
+        playerNameInput.focus();
+        playerNameInput.classList.add('border-red-300', 'dark:border-red-700');
+        setTimeout(() => playerNameInput.classList.remove('border-red-300', 'dark:border-red-700'), 2000);
+        return;
+    }
 
     localStorage.setItem('flip52_player_name', name);
-    const playerId = localStorage.getItem('flip52_player_id');
 
-    // Force connect on user gesture if not already open
     if (!socket || socket.readyState !== WebSocket.OPEN) {
         connect(true);
     }
 
-    const docEl = document.documentElement;
-    const requestFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
-    if (requestFs) {
-        requestFs.call(docEl).catch(e => console.warn("Fullscreen failed", e));
-    }
-
     if (roomId) {
-        sendSocketMessage({ type: "JOIN_ROOM", name, roomId, playerId });
+        sendSocketMessage({ type: "JOIN_ROOM", name, roomId, playerId: localStorage.getItem('flip52_player_id') });
     } else {
-        sendSocketMessage({ type: "CREATE_ROOM", name, playerId });
+        sendSocketMessage({ type: "CREATE_ROOM", name, playerId: localStorage.getItem('flip52_player_id') });
     }
     loginOverlay.classList.add('hidden');
 };
 
 btnStart.onclick = () => {
     const action = gameState.state === 'PLAYING' ? "restart" : "start";
-    if (action === "restart" && !confirm("This will clear the table and chat. Start new game?")) return;
+    if (action === "restart" && !confirm("This will clear the table and chat. Start a new game?")) return;
     sendSocketMessage({ type: "START_GAME" });
 };
 
@@ -613,16 +628,14 @@ btnQuit.onclick = () => {
 btnPlay.onclick = () => {
     if (selectedHandCards.size > 0) {
         sendSocketMessage({ type: "PLAY_CARD", cardIds: Array.from(selectedHandCards) });
-        selectedHandCards.clear();
-        renderUI();
+        clearSelection();
     }
 };
 
 btnTake.onclick = () => {
     if (selectedTableCards.size > 0) {
         sendSocketMessage({ type: "TAKE_CARD", cardIds: Array.from(selectedTableCards) });
-        selectedTableCards.clear();
-        renderUI();
+        clearSelection();
     }
 };
 
@@ -630,9 +643,7 @@ btnDiscard.onclick = () => {
     const cardsToDiscard = [...selectedHandCards, ...selectedTableCards];
     if (cardsToDiscard.length > 0) {
         sendSocketMessage({ type: "DISCARD_CARD", cardIds: cardsToDiscard });
-        selectedHandCards.clear();
-        selectedTableCards.clear();
-        renderUI();
+        clearSelection();
     }
 };
 
@@ -657,24 +668,145 @@ function sortCards(cards) {
     });
 }
 
+function renderRoomId() {
+    if (!gameState) return;
+    displayRoomId.innerText = gameState.roomId;
+}
+
+function renderTable() {
+    if (!gameState) return;
+
+    tableCards.innerHTML = '';
+    gameState.table.forEach((item, index) => {
+        const { cardId, playedBy } = item;
+        const cardWrapper = document.createElement('div');
+        cardWrapper.className = 'flex flex-col items-center gap-1 card-wrapper';
+
+        const cardEl = createCardElement(cardId);
+        if (selectedTableCards.has(cardId)) cardEl.classList.add('selected');
+
+        const playedByEl = document.createElement('div');
+        playedByEl.className = 'text-[10px] text-white/60 dark:text-gray-500 font-medium truncate max-w-[60px]';
+        playedByEl.innerText = playedBy;
+
+        cardEl.onclick = () => {
+            if (selectedTableCards.has(cardId)) {
+                selectedTableCards.delete(cardId);
+                cardEl.classList.remove('selected');
+            } else {
+                selectedTableCards.add(cardId);
+                cardEl.classList.add('selected');
+            }
+            updateActionBar();
+        };
+
+        cardWrapper.appendChild(cardEl);
+        cardWrapper.appendChild(playedByEl);
+        tableCards.appendChild(cardWrapper);
+    });
+
+    if (gameState.table.length === 0) {
+        const emptyState = document.createElement('div');
+        emptyState.className = 'col-span-full flex flex-col items-center justify-center py-8 text-white/30 dark:text-gray-600';
+        emptyState.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-2 opacity-50"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <span class="text-xs font-semibold uppercase tracking-widest">Table is empty</span>
+        `;
+        tableCards.appendChild(emptyState);
+    }
+}
+
+function createHandCardElement(cardId) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'card-wrapper';
+    wrapper.dataset.cardId = cardId;
+
+    const cardEl = createCardElement(cardId);
+    if (selectedHandCards.has(cardId)) cardEl.classList.add('selected');
+    cardEl.onclick = () => {
+        if (selectedHandCards.has(cardId)) {
+            selectedHandCards.delete(cardId);
+            cardEl.classList.remove('selected');
+        } else {
+            selectedHandCards.add(cardId);
+            cardEl.classList.add('selected');
+        }
+        updateActionBar();
+    };
+    wrapper.appendChild(cardEl);
+    return wrapper;
+}
+
+function renderHand() {
+    if (!gameState) return;
+
+    const sortedHand = sortCards(gameState.hand);
+
+    // Remove cards no longer in hand
+    for (const w of [...myHand.querySelectorAll('.card-wrapper')]) {
+        if (!sortedHand.includes(w.dataset.cardId)) {
+            w.remove();
+        }
+    }
+
+    // Add new cards and reposition existing ones
+    sortedHand.forEach((cardId, index) => {
+        const wrapper = myHand.querySelector(`.card-wrapper[data-card-id="${cardId}"]`);
+        const ref = myHand.children[index];
+
+        if (wrapper) {
+            // Move to correct position if needed (if it's not already there)
+            if (wrapper !== ref) {
+                myHand.insertBefore(wrapper, ref);
+            }
+        } else {
+            // Create new card and insert at correct position
+            myHand.insertBefore(createHandCardElement(cardId), ref);
+        }
+    });
+
+    // Manage empty state
+    const emptyEl = myHand.querySelector('.empty-hand-state');
+    if (gameState.hand.length === 0) {
+        if (!emptyEl) {
+            const state = document.createElement('div');
+            state.className = 'col-span-full flex items-center justify-center py-4 text-gray-400 dark:text-gray-600 empty-hand-state';
+            state.innerHTML = `<span class="text-xs font-semibold uppercase tracking-widest">No cards</span>`;
+            myHand.appendChild(state);
+        }
+    } else if (emptyEl) {
+        emptyEl.remove();
+    }
+}
+
 function renderUI() {
     if (!gameState) return;
 
-    displayRoomId.innerText = gameState.roomId;
+    renderRoomId();
+    if (!gameState.scores) gameState.scores = {};
+    renderTable();
+    renderHand();
+    renderPlayerList();
+    renderChat();
+    updateActionBar();
+}
 
+function renderPlayerList() {
+    if (!gameState) return;
     if (!gameState.scores) gameState.scores = {};
     
-    // Refresh scoreboard if modal is open
     if (!scoreboardModal.classList.contains('hidden')) {
         renderScoreboard();
     }
     
     playerList.innerHTML = gameState.players.map(p => `
-        <div class="flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold whitespace-nowrap shadow-sm
-            ${p.id === myId ? 'bg-blue-600 text-white border-blue-700' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700'}">
-            <div class="w-1.5 h-1.5 rounded-full ${p.online ? 'bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.5)]' : 'bg-gray-300 dark:bg-gray-600'}"></div>
-            <span class="max-w-[80px] truncate">${p.name}</span>
-            <span class="opacity-70 px-1.5 py-0.5 rounded-full text-[10px] 
+        <div class="player-chip flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold whitespace-nowrap shadow-sm
+            ${p.id === myId ? 'bg-blue-600 text-white border-blue-500' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'}">
+            <span class="relative flex h-2 w-2">
+                ${p.online ? '<span class="animate-ping absolute h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative rounded-full h-2 w-2 bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.5)]"></span>' : '<span class="rounded-full h-2 w-2 bg-gray-300 dark:bg-gray-600"></span>'}
+            </span>
+            <span class="max-w-[72px] truncate">${p.name}</span>
+            <span class="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold
                 ${p.id === myId ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}">
                 ${p.handCount}
             </span>
@@ -698,54 +830,12 @@ function renderUI() {
     } else {
         btnStart.classList.add('hidden');
     }
+}
 
-    tableCards.innerHTML = '';
-    gameState.table.forEach((item) => {
-        const { cardId, playedBy } = item;
-        const cardWrapper = document.createElement('div');
-        cardWrapper.className = 'flex flex-col items-center gap-1';
-        
-        const cardEl = createCardElement(cardId);
-        if (selectedTableCards.has(cardId)) cardEl.classList.add('selected');
-        
-        const playedByEl = document.createElement('div');
-        playedByEl.className = 'text-[10px] text-gray-400 dark:text-gray-500 font-medium truncate max-w-[60px]';
-        playedByEl.innerText = playedBy;
-        
-        cardEl.onclick = () => {
-            if (selectedTableCards.has(cardId)) {
-                selectedTableCards.delete(cardId);
-            } else {
-                selectedTableCards.add(cardId);
-            }
-            renderUI();
-        };
-        
-        cardWrapper.appendChild(cardEl);
-        cardWrapper.appendChild(playedByEl);
-        tableCards.appendChild(cardWrapper);
-    });
-
-    myHand.innerHTML = '';
-    const sortedHand = sortCards(gameState.hand);
-    sortedHand.forEach(cardId => {
-        const cardEl = createCardElement(cardId);
-        if (selectedHandCards.has(cardId)) cardEl.classList.add('selected');
-        cardEl.onclick = () => {
-            if (selectedHandCards.has(cardId)) {
-                selectedHandCards.delete(cardId);
-            } else {
-                selectedHandCards.add(cardId);
-            }
-            renderUI();
-        };
-        myHand.appendChild(cardEl);
-    });
-
+function renderChat() {
     const wasAtBottom = chatMessages.scrollHeight - chatMessages.scrollTop <= chatMessages.clientHeight + 10;
     const oldMessageCount = chatMessages.children.length;
     
-    // Filter out connection messages
     const filteredChat = gameState.chat.filter(c => {
         if (c.type !== 'activity') return true;
         const msg = c.message.toLowerCase();
@@ -756,9 +846,11 @@ function renderUI() {
     });
 
     chatMessages.innerHTML = filteredChat.map(c => `
-        <div class="mb-1 leading-tight">
-            <span class="font-bold ${c.type === 'activity' ? 'text-gray-400 dark:text-gray-500 text-xs' : 'text-blue-500'}">${c.type === 'activity' ? 'SYSTEM' : c.name}:</span>
-            <span class="${c.type === 'activity' ? 'italic text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'}">${c.type === 'activity' ? formatActivity(c.message) : c.message}</span>
+        <div class="leading-snug py-0.5">
+            ${c.type === 'activity' 
+                ? `<span class="text-[11px] text-gray-400 dark:text-gray-500 italic">${formatActivity(c.message)}</span>`
+                : `<span class="text-xs"><span class="font-bold text-blue-500 dark:text-blue-400">${c.name}:</span> <span class="text-gray-700 dark:text-gray-300">${c.message}</span></span>`
+            }
         </div>
     `).join('');
 
@@ -769,22 +861,34 @@ function renderUI() {
     if (wasAtBottom) {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
+}
 
+function clearSelection() {
+    selectedHandCards.clear();
+    selectedTableCards.clear();
+    document.querySelectorAll('#my-hand .card.selected, #table-cards .card.selected').forEach(el => el.classList.remove('selected'));
+    updateActionBar();
+}
+
+function updateActionBar() {
     const totalSelected = selectedHandCards.size + selectedTableCards.size;
     btnPlay.disabled = selectedHandCards.size === 0;
     btnDiscard.disabled = totalSelected === 0;
     btnTake.disabled = selectedTableCards.size === 0;
 
-    btnPlay.innerText = `Play (${selectedHandCards.size})`;
-    btnDiscard.innerText = `Discard (${totalSelected})`;
-    btnTake.innerText = `Take (${selectedTableCards.size})`;
+    document.getElementById('play-count').textContent = selectedHandCards.size > 0 ? selectedHandCards.size : '';
+    document.getElementById('discard-count').textContent = totalSelected > 0 ? totalSelected : '';
+    document.getElementById('take-count').textContent = selectedTableCards.size > 0 ? selectedTableCards.size : '';
 }
 
 function createCardElement(cardId) {
     const rank = cardId.slice(0, -1);
     const suit = cardId.slice(-1);
     const el = document.createElement('div');
-    el.className = `card bg-white shadow border suit-${suit}`;
-    el.innerHTML = `<div>${rank}</div><div>${suitSymbols[suit]}</div>`;
+    el.className = `card suit-${suit}`;
+    el.innerHTML = `
+        <span class="card-rank">${rank}</span>
+        <span class="card-suit">${suitSymbols[suit]}</span>
+    `;
     return el;
 }
